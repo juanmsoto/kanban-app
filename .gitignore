@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+
+# Salida de build
+dist/
+build/
+
+# Secretos y configuración local (nunca al repositorio)
+.env
+.env.*
+!.env.example
+
+# Tests y cobertura
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operativo y editores
+.DS_Store
+.idea/
+.vscode/
+
+# Configuración local de Claude Code
+.claude/settings.local.json
