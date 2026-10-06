@@ -1,15 +1,15 @@
 # Progreso: Kanban con equipos
 
 ## Dónde estamos y qué sigue
-Proyecto recién creado (2026-10-05). Carpeta con `CLAUDE.md` y `PROGRESO.md`; todavía no es un repo git.
-**Próximo paso:** cerrar el Bloque 1: commit de lo pendiente, merge squash de `feature/setup` a `main` y tag `hito-setup`. Después, Bloque 2 `feature/auth` (decisión header vs cookie).
+Bloques 0 y 1 completos (2026-10-06): modelo de datos, repaso de JS, y backend con Express + Drizzle + Postgres (5 tablas migradas), `GET /health` y tests de integración funcionando. Rama activa al cerrar el Bloque 1: `feature/setup` (se mergea a `main` con squash y tag `hito-setup`).
+**Próximo paso:** Bloque 2 `feature/auth`: crear la rama, decidir header (`Authorization: Bearer`) vs cookie httpOnly para el JWT (se presenta como opciones con trade-offs XSS vs CSRF) y empezar por el registro.
 
 ## Plan
 - [x] Bloque 0: Fundamentos (sin código de app)
   - [x] 0.1 Modelo de datos en papel (tablas, relaciones, cómo guardar el orden)
   - [x] 0.2 Repaso de JS cliente: React vs DOM manual, filter, map/spread, referencias, destructuring
   - [x] 0.3 Estructura de carpetas frontend/backend
-- [ ] Bloque 1 `feature/setup` (todos los pasos hechos; falta commit, merge squash y tag `hito-setup`): backend Express+TS, Postgres, Drizzle (conexión, esquema, primera migración), Vitest+supertest funcionando
+- [x] Bloque 1 `feature/setup` (mergeado a `main` con squash, tag `hito-setup`): backend Express+TS, Postgres, Drizzle (conexión, esquema, primera migración), Vitest+supertest funcionando
   - [x] 1.1 Postgres local con rol propio `kanban_app` (sin superusuario) y bases `kanban_app` / `kanban_app_test`
   - [x] 1.2 Proyecto `backend/`: package.json, dependencias, tsconfig (typecheck y build)
   - [x] 1.3a `.env` / `.env.example` (ambas URLs verificadas: conectan como `kanban_app` a su base)
