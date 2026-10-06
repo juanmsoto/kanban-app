@@ -2,7 +2,7 @@
 
 ## Dónde estamos y qué sigue
 Proyecto recién creado (2026-10-05). Carpeta con `CLAUDE.md` y `PROGRESO.md`; todavía no es un repo git.
-**Próximo paso:** 1.3b: escribir el cliente de Drizzle en `backend/src/db/client.ts` (Juan tipea; Drizzle es nivel 1).
+**Próximo paso:** 1.4: esquema de Drizzle (las 5 tablas con `pgTable`, `pgEnum`, relaciones) y primera migración. Juan tipea; Drizzle es nivel 1.
 
 ## Plan
 - [x] Bloque 0: Fundamentos (sin código de app)
@@ -13,7 +13,7 @@ Proyecto recién creado (2026-10-05). Carpeta con `CLAUDE.md` y `PROGRESO.md`; t
   - [x] 1.1 Postgres local con rol propio `kanban_app` (sin superusuario) y bases `kanban_app` / `kanban_app_test`
   - [x] 1.2 Proyecto `backend/`: package.json, dependencias, tsconfig (typecheck y build)
   - [x] 1.3a `.env` / `.env.example` (ambas URLs verificadas: conectan como `kanban_app` a su base)
-  - [ ] 1.3b Cliente de Drizzle (`src/db/client.ts`)
+  - [x] 1.3b Cliente de Drizzle (`src/db/client.ts`): verificado en dev, con NODE_ENV=test (va a kanban_app_test) y sin variables (falla con mensaje claro)
   - [ ] 1.4 Esquema de Drizzle (las 5 tablas) y primera migración
   - [ ] 1.5 `app.ts` / `server.ts` con `GET /health` y primer test de integración (Vitest + supertest)
 - [ ] Bloque 2 `feature/auth`: registro y login, decisión header vs cookie, JWT, middleware, tests
@@ -53,7 +53,8 @@ Ver tabla en `CLAUDE.md`. 2026-10-05: niveles recalibrados leyendo `ventas-app`;
 - Referencias: `===` compara identidad, no contenido; spread es copia superficial (los objetos de adentro se comparten); por eso se edita con `{ ...card, campo }`.
 
 ## Dudas que costaron y cómo se destrabaron
-(ninguna todavía)
+- `===` en arrays/objetos y copia superficial del spread: se destrabó con el dibujo de "casillero y llaves" y viendo `copia[0].id = 99` cambiar `cards[0].id`.
+- Roles de Postgres: se destrabó con la analogía de edificio / tarjeta de acceso y una tabla de qué hace cada parte del `CREATE ROLE`.
 
 ## Decisiones tomadas
 - 2026-10-05: stack React+TS (Vite) / Express+TS / PostgreSQL+Drizzle / JWT / Vitest+supertest.
