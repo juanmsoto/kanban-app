@@ -2,7 +2,7 @@
 
 ## Dónde estamos y qué sigue
 Proyecto recién creado (2026-10-05). Carpeta con `CLAUDE.md` y `PROGRESO.md`; todavía no es un repo git.
-**Próximo paso:** 1.4: esquema de Drizzle (las 5 tablas con `pgTable`, `pgEnum`, relaciones) y primera migración. Juan tipea; Drizzle es nivel 1.
+**Próximo paso:** 1.4c (pequeño arreglo del config) y después 1.5: `app.ts` / `server.ts` con `GET /health` y el primer test de integración.
 
 ## Plan
 - [x] Bloque 0: Fundamentos (sin código de app)
@@ -14,7 +14,9 @@ Proyecto recién creado (2026-10-05). Carpeta con `CLAUDE.md` y `PROGRESO.md`; t
   - [x] 1.2 Proyecto `backend/`: package.json, dependencias, tsconfig (typecheck y build)
   - [x] 1.3a `.env` / `.env.example` (ambas URLs verificadas: conectan como `kanban_app` a su base)
   - [x] 1.3b Cliente de Drizzle (`src/db/client.ts`): verificado en dev, con NODE_ENV=test (va a kanban_app_test) y sin variables (falla con mensaje claro)
-  - [ ] 1.4 Esquema de Drizzle (las 5 tablas) y primera migración
+  - [x] 1.4a Esquema de Drizzle (`src/db/schema.ts`, 5 tablas, `snakeCase.table`, `pgEnum`, PK compuesta): compila y los tipos inferidos coinciden con el diseño
+  - [x] 1.4b `drizzle.config.ts`, migración `esquema_inicial` generada, revisada y aplicada a `kanban_app` y `kanban_app_test`; verificado en `psql` (cascade, enum, UNIQUE, PK compuesta, identity ALWAYS)
+  - [ ] 1.4c Corregir `drizzle.config.ts`: `db:generate` no debería exigir la URL de la base (solo `migrate` la necesita)
   - [ ] 1.5 `app.ts` / `server.ts` con `GET /health` y primer test de integración (Vitest + supertest)
 - [ ] Bloque 2 `feature/auth`: registro y login, decisión header vs cookie, JWT, middleware, tests
 - [ ] Bloque 3 `feature/boards`: workspaces/tableros, miembros, permisos por tablero (muchos-a-muchos), tests
@@ -45,6 +47,8 @@ Reglas pendientes para más adelante: un tablero nunca queda sin `owner`; autori
 Ver tabla en `CLAUDE.md`. 2026-10-05: niveles recalibrados leyendo `ventas-app`; Juan aclaró que no domina Node/Express/TS/JWT (solo sabe trabajar con ellos), así que pasan de nivel 3 a nivel 2. Solo SQL a mano queda en nivel 3.
 
 ## Conceptos cubiertos
+- Migraciones con Drizzle: `db:generate` (escribe SQL + snapshot, no toca la base), `db:migrate` (aplica y registra en `drizzle.__drizzle_migrations`), una migración por cambio de esquema; el SQL generado se revisa antes de aplicar. Columnas de PK son NOT NULL implícito.
+- Drizzle: `db` vs `pool`, tablas como código (`snakeCase.table`), columnas encadenadas, `.notNull()` -> tipo `T` vs `T | null`, FK con `.references` y `onDelete: 'cascade'`, PK compuesta, `pgEnum`, `$onUpdate` (lo hace Drizzle, no la base).
 - Modelo de datos relacional del tablero: uno-a-muchos en cadena (boards -> columns -> cards) y muchos-a-muchos con tabla puente y rol (`board_members`).
 - Orden persistido con posición fraccionaria (una fila por movimiento) y `ORDER BY` obligatorio.
 - React vs DOM manual: pantalla = función(estado); `render()` único en vez de actualizar la pantalla por partes.
@@ -53,6 +57,7 @@ Ver tabla en `CLAUDE.md`. 2026-10-05: niveles recalibrados leyendo `ventas-app`;
 - Referencias: `===` compara identidad, no contenido; spread es copia superficial (los objetos de adentro se comparten); por eso se edita con `{ ...card, campo }`.
 
 ## Dudas que costaron y cómo se destrabaron
+- Error del editor `Cannot find name 'process'` solo en `drizzle.config.ts` mientras `tsc` pasaba limpio: era el servidor de TypeScript del editor con estado viejo; se resolvió reiniciándolo. Lección: si `tsc` pasa, el error es del editor.
 - `===` en arrays/objetos y copia superficial del spread: se destrabó con el dibujo de "casillero y llaves" y viendo `copia[0].id = 99` cambiar `cards[0].id`.
 - Roles de Postgres: se destrabó con la analogía de edificio / tarjeta de acceso y una tabla de qué hace cada parte del `CREATE ROLE`.
 
@@ -73,4 +78,5 @@ Ver tabla en `CLAUDE.md`. 2026-10-05: niveles recalibrados leyendo `ventas-app`;
 - 2026-10-05: la API se conecta con un rol propio `kanban_app` (mínimo privilegio), no con el superusuario. `@types/node` fijado en 22 para coincidir con Node 22.
 - 2026-10-05: Postgres local estaba caído por un `postmaster.pid` viejo (PID reutilizado por un servicio de macOS); se borró el pid, se reinició con `brew services restart postgresql@16` y las bases de ventas-app quedaron intactas.
 - 2026-10-05: conexión a la base = una sola variable `DATABASE_URL` (más `TEST_DATABASE_URL` para la base de tests), no campos DB_* sueltos. Evita el error #16 de ventas-app (URL completa en DB_HOST).
+- 2026-10-05: nombres de columnas = `snakeCase.table(...)` con propiedades en camelCase (en la 1.0 ya no existe la opción `casing` del cliente; se verificó en el paquete instalado).
 - Pendiente: JWT en header `Authorization: Bearer` vs cookie httpOnly (se decide en Bloque 2).
