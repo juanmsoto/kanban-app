@@ -2,14 +2,14 @@
 
 ## Dónde estamos y qué sigue
 Bloques 0 y 1 completos (2026-10-06): modelo de datos, repaso de JS, y backend con Express + Drizzle + Postgres (5 tablas migradas), `GET /health` y tests de integración funcionando. Rama activa al cerrar el Bloque 1: `feature/setup` (se mergea a `main` con squash y tag `hito-setup`).
-**Próximo paso:** Bloque 2 `feature/auth`: crear la rama, decidir header (`Authorization: Bearer`) vs cookie httpOnly para el JWT (se presenta como opciones con trade-offs XSS vs CSRF) y empezar por el registro.
+**Próximo paso:** 2.1: Juan agrega `JWT_SECRET` al `backend/.env`; después 2.2: esquemas de Zod.
 
 ## Plan
 - [x] Bloque 0: Fundamentos (sin código de app)
   - [x] 0.1 Modelo de datos en papel (tablas, relaciones, cómo guardar el orden)
   - [x] 0.2 Repaso de JS cliente: React vs DOM manual, filter, map/spread, referencias, destructuring
   - [x] 0.3 Estructura de carpetas frontend/backend
-- [x] Bloque 1 `feature/setup` (mergeado a `main` con squash, tag `hito-setup`): backend Express+TS, Postgres, Drizzle (conexión, esquema, primera migración), Vitest+supertest funcionando
+- [x] Bloque 1 `feature/setup` (mergeado a `main` con squash `59524`, tag `hito-setup`; el squash se rehízo una vez para incluir `.env.example`): backend Express+TS, Postgres, Drizzle (conexión, esquema, primera migración), Vitest+supertest funcionando
   - [x] 1.1 Postgres local con rol propio `kanban_app` (sin superusuario) y bases `kanban_app` / `kanban_app_test`
   - [x] 1.2 Proyecto `backend/`: package.json, dependencias, tsconfig (typecheck y build)
   - [x] 1.3a `.env` / `.env.example` (ambas URLs verificadas: conectan como `kanban_app` a su base)
@@ -19,7 +19,12 @@ Bloques 0 y 1 completos (2026-10-06): modelo de datos, repaso de JS, y backend c
   - [x] 1.4c DESCARTADO a propósito: `drizzle.config.ts` exige la URL aunque `db:generate` no se conecte. En el tipo de drizzle-kit `dbCredentials` es obligatorio para PostgreSQL y quien clone el repo necesita el `.env` igual (migrate/dev/tests); el error claro es preferible a uno de conexión confuso
   - [x] 1.5a `src/app.ts` y `src/server.ts` (JSON, `GET /health` con chequeo de base, 404 y errores en JSON): verificado con curl (200, 404, 400 con JSON roto, 500 con base caída sin filtrar detalles)
   - [x] 1.5b `vitest.config.ts` + `test/setup.ts` (guard `*_test`, TRUNCATE por test, `pool.end()`) y primer test de integración de `/health` y 404 (`test/app.test.ts`, lo escribió Juan): `npm test` pasa 2/2
-- [ ] Bloque 2 `feature/auth`: registro y login, decisión header vs cookie, JWT, middleware, tests
+- [ ] Bloque 2 `feature/auth`: registro y login, JWT, middleware, tests
+  - [ ] 2.1 Dependencias (zod, bcrypt, jsonwebtoken) y `JWT_SECRET` en el `.env` (lo agrega Juan)
+  - [ ] 2.2 Esquemas de Zod de registro y login (Juan)
+  - [ ] 2.3 `POST /auth/register` (service + controller + test, Juan). Email en minúsculas; duplicado -> 409
+  - [ ] 2.4 `POST /auth/login` que devuelve el token (Juan) + tests
+  - [ ] 2.5 Middleware `requireAuth` (header Bearer) y `GET /auth/me` (Juan) + tests: sin token, token inválido, token vencido
 - [ ] Bloque 3 `feature/boards`: workspaces/tableros, miembros, permisos por tablero (muchos-a-muchos), tests
 - [ ] Bloque 4 `feature/columns-cards`: columnas y tarjetas, orden persistido, mover/reordenar, tests
 - [ ] Bloque 5 `feature/frontend-base`: Vite+React, rutas (`/boards/:id`), estado local y global, formularios controlados, login desde el cliente
@@ -61,6 +66,7 @@ Ver tabla en `CLAUDE.md`. 2026-10-05: niveles recalibrados leyendo `ventas-app`;
 - Referencias: `===` compara identidad, no contenido; spread es copia superficial (los objetos de adentro se comparten); por eso se edita con `{ ...card, campo }`.
 
 ## Dudas que costaron y cómo se destrabaron
+- `.env.example` desaparecido: al crear el `.env` se renombró la plantilla (`mv`) en vez de copiarla (`cp`), y nunca se commiteó. Se detectó en el cierre del Bloque 1 mirando la lista de archivos del squash. Lección: revisar que los archivos esperados estén en el commit, no solo que "no sobre nada".
 - Error del editor `Cannot find name 'process'` solo en `drizzle.config.ts` mientras `tsc` pasaba limpio: era el servidor de TypeScript del editor con estado viejo; se resolvió reiniciándolo. Lección: si `tsc` pasa, el error es del editor.
 - `===` en arrays/objetos y copia superficial del spread: se destrabó con el dibujo de "casillero y llaves" y viendo `copia[0].id = 99` cambiar `cards[0].id`.
 - Roles de Postgres: se destrabó con la analogía de edificio / tarjeta de acceso y una tabla de qué hace cada parte del `CREATE ROLE`.
@@ -83,4 +89,5 @@ Ver tabla en `CLAUDE.md`. 2026-10-05: niveles recalibrados leyendo `ventas-app`;
 - 2026-10-05: Postgres local estaba caído por un `postmaster.pid` viejo (PID reutilizado por un servicio de macOS); se borró el pid, se reinició con `brew services restart postgresql@16` y las bases de ventas-app quedaron intactas.
 - 2026-10-05: conexión a la base = una sola variable `DATABASE_URL` (más `TEST_DATABASE_URL` para la base de tests), no campos DB_* sueltos. Evita el error #16 de ventas-app (URL completa en DB_HOST).
 - 2026-10-05: nombres de columnas = `snakeCase.table(...)` con propiedades en camelCase (en la 1.0 ya no existe la opción `casing` del cliente; se verificó en el paquete instalado).
-- Pendiente: JWT en header `Authorization: Bearer` vs cookie httpOnly (se decide en Bloque 2).
+- 2026-10-06: Juan dio permiso puntual ("por esta vez") para que Claude ejecutara `checkout`, `reset --hard`, `tag` y `merge --squash` y rehacer el squash de `main`. La regla de CLAUDE.md sigue vigente: Juan corre los comandos que cambian el repo. Los commits hechos por Claude llevan el trailer Co-Authored-By.
+- 2026-10-06: JWT viaja en el header `Authorization: Bearer <token>` (no cookie): un solo contrato para web y móvil, sin CSRF, CORS simple. Riesgo asumido: XSS en la web (token legible por JS); mitigación: React escapa por defecto, sin `dangerouslySetInnerHTML`, token de vida corta. Endurecer a híbrido (cookie en web) queda como evolución posible. Dónde guardar el token en el cliente se decide en el Bloque 5.
