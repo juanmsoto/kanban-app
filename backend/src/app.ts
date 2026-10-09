@@ -2,6 +2,7 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { sql } from 'drizzle-orm';
 import { db } from './db/client.js';
+import authRoutes from './modules/auth/auth.routes.js';
 
 const app = express();
 
@@ -12,6 +13,9 @@ app.get('/health', async (_req: Request, res: Response) => {
   await db.execute(sql`select 1`);
   res.json({ status: 'ok' });
 });
+
+// Rutas auth
+app.use('/auth', authRoutes);
 
 // Ninguna ruta anterior respondió: 404 en JSON (nada de vistas ni redirects).
 app.use((_req: Request, res: Response) => {

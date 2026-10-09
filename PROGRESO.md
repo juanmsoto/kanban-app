@@ -2,7 +2,7 @@
 
 ## Dónde estamos y qué sigue
 Bloques 0 y 1 completos (2026-10-06): modelo de datos, repaso de JS, y backend con Express + Drizzle + Postgres (5 tablas migradas), `GET /health` y tests de integración funcionando. Rama activa al cerrar el Bloque 1: `feature/setup` (se mergea a `main` con squash y tag `hito-setup`).
-**Próximo paso:** 2.1: Juan agrega `JWT_SECRET` al `backend/.env`; después 2.2: esquemas de Zod.
+**Próximo paso:** 2.3d: tests de integración de `register` (Juan escribe el primero).
 
 ## Plan
 - [x] Bloque 0: Fundamentos (sin código de app)
@@ -20,9 +20,12 @@ Bloques 0 y 1 completos (2026-10-06): modelo de datos, repaso de JS, y backend c
   - [x] 1.5a `src/app.ts` y `src/server.ts` (JSON, `GET /health` con chequeo de base, 404 y errores en JSON): verificado con curl (200, 404, 400 con JSON roto, 500 con base caída sin filtrar detalles)
   - [x] 1.5b `vitest.config.ts` + `test/setup.ts` (guard `*_test`, TRUNCATE por test, `pool.end()`) y primer test de integración de `/health` y 404 (`test/app.test.ts`, lo escribió Juan): `npm test` pasa 2/2
 - [ ] Bloque 2 `feature/auth`: registro y login, JWT, middleware, tests
-  - [ ] 2.1 Dependencias (zod, bcrypt, jsonwebtoken) y `JWT_SECRET` en el `.env` (lo agrega Juan)
-  - [ ] 2.2 Esquemas de Zod de registro y login (Juan)
-  - [ ] 2.3 `POST /auth/register` (service + controller + test, Juan). Email en minúsculas; duplicado -> 409
+  - [x] 2.1 Dependencias (zod, bcrypt, jsonwebtoken) y `JWT_SECRET` en el `.env` (verificado: 64 hex, distinto al de ventas-app)
+  - [x] 2.2 Esquemas de Zod de registro y login (`src/modules/auth/auth.schemas.ts`, Juan): email trim+lowercase+pipe(z.email()), password min 8 y máx 72 BYTES (bcrypt trunca en silencio), login solo exige no vacío
+  - [x] 2.3a `auth.service.ts` (`registerUser`, `EmailAlreadyRegisteredError`, detección de 23505 vía `DrizzleQueryError.cause`): verificado (no devuelve hash, guarda bcrypt, duplicado lanza el error propio sin crear fila)
+  - [x] 2.3c Controller `register`, `auth.routes.ts` y `app.use('/auth', ...)` antes del 404: verificado con curl (201, 409 incluso con otra capitalización, 400 por campo, 400 sin body y con JSON roto, campos extra `id`/`passwordHash` ignorados, GET -> 404)
+  - [ ] 2.3d Tests de integración de `POST /auth/register` en `test/auth.test.ts` (Juan escribe el primero; el resto se completa)
+  - [ ] 2.3b PENDIENTE DE SEGURIDAD: el manejador de errores de `app.ts` hace `console.error(err)`; el mensaje de `DrizzleQueryError` incluye los parámetros de la consulta (verificado: nombre, email y `password_hash`). Corregir para que el log no vuelque datos sensibles (p. ej. loguear `err.cause` / redactar params) antes de cerrar el Bloque 2
   - [ ] 2.4 `POST /auth/login` que devuelve el token (Juan) + tests
   - [ ] 2.5 Middleware `requireAuth` (header Bearer) y `GET /auth/me` (Juan) + tests: sin token, token inválido, token vencido
 - [ ] Bloque 3 `feature/boards`: workspaces/tableros, miembros, permisos por tablero (muchos-a-muchos), tests
@@ -53,6 +56,9 @@ Reglas pendientes para más adelante: un tablero nunca queda sin `owner`; autori
 Ver tabla en `CLAUDE.md`. 2026-10-05: niveles recalibrados leyendo `ventas-app`; Juan aclaró que no domina Node/Express/TS/JWT (solo sabe trabajar con ellos), así que pasan de nivel 3 a nivel 2. Solo SQL a mano queda en nivel 3.
 
 ## Conceptos cubiertos
+- `return` tras responder: `res.json`/`res.render` no detienen la función; sin `return` en una salida temprana el código sigue y falla con `ERR_HTTP_HEADERS_SENT`. Orden de `app.use`: el router de `/auth` va antes del 404. Los ids de identity pueden tener huecos (un INSERT fallido consume un valor de la secuencia).
+- Zod 4: orden de transformaciones (`trim`/`toLowerCase` antes de `z.email()` con `.pipe`), `.refine`, claves de más descartadas, `z.infer<typeof schema>` (tipo deducido del esquema, una sola fuente de verdad).
+- bcrypt: usa solo los primeros 72 BYTES de la contraseña (límite del algoritmo, no bug de la librería); contraseñas distintas con el mismo prefijo de 72 bytes comparan como iguales; se rechaza lo que pase de 72 bytes. Argon2id sería la alternativa moderna sin ese límite.
 - Tests de integración: estructura `describe`/`it`/`expect`, supertest, `response.status` / `response.body` (supertest parsea el JSON), `toBe` (referencia/primitivos) vs `toEqual` (contenido). Un error de sintaxis (coma faltante) produce una avalancha de errores: se lee el primero.
 - HTTP: request (línea de petición, headers, línea en blanco, body) y response (línea de estado, headers, body); texto sobre TCP.
 - Express como API JSON: `express.json()` (parsea el body), `res.json`, 404 y manejador de errores en JSON (4 parámetros), Express 5 reenvía solo los errores de handlers `async` al manejador, errores 4xx (JSON roto = 400) vs 500, y no filtrar detalles internos al cliente (se loguean en el servidor).
@@ -91,3 +97,5 @@ Ver tabla en `CLAUDE.md`. 2026-10-05: niveles recalibrados leyendo `ventas-app`;
 - 2026-10-05: nombres de columnas = `snakeCase.table(...)` con propiedades en camelCase (en la 1.0 ya no existe la opción `casing` del cliente; se verificó en el paquete instalado).
 - 2026-10-06: Juan dio permiso puntual ("por esta vez") para que Claude ejecutara `checkout`, `reset --hard`, `tag` y `merge --squash` y rehacer el squash de `main`. La regla de CLAUDE.md sigue vigente: Juan corre los comandos que cambian el repo. Los commits hechos por Claude llevan el trailer Co-Authored-By.
 - 2026-10-06: JWT viaja en el header `Authorization: Bearer <token>` (no cookie): un solo contrato para web y móvil, sin CSRF, CORS simple. Riesgo asumido: XSS en la web (token legible por JS); mitigación: React escapa por defecto, sin `dangerouslySetInnerHTML`, token de vida corta. Endurecer a híbrido (cookie en web) queda como evolución posible. Dónde guardar el token en el cliente se decide en el Bloque 5.
+- 2026-10-08: registro responde 409 con mensaje claro si el email ya existe (opción A). Riesgo conocido: enumeración de usuarios; se mitiga más adelante con rate limiting. El login ya usa el mismo mensaje/status para "no existe" y "contraseña incorrecta". El duplicado se detecta insertando y atrapando el error (atómico), no con SELECT previo.
+- 2026-10-08: en Drizzle 1.0 los errores de Postgres llegan envueltos: `DrizzleQueryError` con el `DatabaseError` de `pg` en `.cause` (código `23505`, constraint `users_email_key`); `error.code` directo ya no existe como en ventas-app.
