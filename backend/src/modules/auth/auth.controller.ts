@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { registerSchema } from './auth.schemas.js';
-import { registerUser, EmailAlreadyRegisteredError } from './auth.service.js';
+import { loginSchema, registerSchema } from './auth.schemas.js';
+import { registerUser, EmailAlreadyRegisteredError, loginUser, InvalidCredentialsError } from './auth.service.js';
 
 export async function register(req: Request, res: Response) {
     const parsed = registerSchema.safeParse(req.body);
@@ -24,5 +24,28 @@ export async function register(req: Request, res: Response) {
         }
         throw error;
     }
+}
+
+export async function login(req: Request, res: Response) {
+    const parsed = loginSchema.safeParse(req.body);
+
+    if(!parsed.success) {
+        res.status(400).json({
+            error: 'Datos invalidos',
+            fields: z.flattenError(parsed.error).fieldErrors,
+        });
+        return;
+    }
+
+    try {
+        const result = await loginUser(parsed.data);
+        res.status(200).json(result);
+    } catch(err) {
+        if(err instanceof InvalidCredentialsError) {
+            res.status(401).json({ error: 'Credenciales invalidas' });
+            return;
+        }
+        throw err;
+     }
 }
 

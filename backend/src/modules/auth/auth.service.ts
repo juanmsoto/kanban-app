@@ -1,13 +1,25 @@
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { DatabaseError } from 'pg';
-import { DrizzleQueryError } from 'drizzle-orm';
+import { DrizzleQueryError, eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { users } from '../../db/schema.js';
-import type { RegisterInput } from './auth.schemas.js';
+import type { RegisterInput, LoginInput } from './auth.schemas.js';
 
 const BCRYPT_ROUNDS = 10;
+const JWT_EXPIRES_IN = '1h';
+
+const jwtSecret = process.env.JWT_SECRET;
+if(!jwtSecret) {
+    throw new Error('Falta JWT_SECRET en el .env');
+}
+
+// Hash de relleno: si el email no existe igual hacemos un compare, para que
+// "email inexistente" y "contrasena incorrecta" tarden lo mismo.
+const DUMMY_HASH = bcrypt.hashSync('relleno', BCRYPT_ROUNDS);
 
 export class EmailAlreadyRegisteredError extends Error {}
+export class InvalidCredentialsError extends Error {}
 
 function esEmailDuplicado(error: unknown): boolean {
     return (
@@ -43,4 +55,23 @@ export async function registerUser({ name, email, password }: RegisterInput) {
         }
         throw error;
     }
+}
+
+export async function loginUser({ email, password }: LoginInput) {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+
+    const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
+
+    if(!user || !passwordOk) {
+        throw new InvalidCredentialsError();
+    }
+
+    const token = jwt.sign({ sub: String(user.id) }, jwtSecret as string, {
+        expiresIn: JWT_EXPIRES_IN,
+    });
+
+    return {
+        token,
+        user: { id: user.id, name: user.name, email: user.email },
+    };
 }

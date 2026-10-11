@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import jwt from 'jsonwebtoken';
 import app from "../src/app.js";
 import { db } from "../src/db/client.js";
 import { users } from "../src/db/schema.js";
-import { error } from "console";
 
 const datosValidos = {
     name: 'Ana',
@@ -65,5 +65,72 @@ describe('POST /auth/register', () => {
 
         expect(response.status).toBe(400);
         expect(response.body.fields).toHaveProperty('password');
+    });
+});
+
+describe('POST /auth/login', () => {
+    it('login correcto', async () => {
+        await request(app).post('/auth/register').send(datosValidos);
+
+        const response = await request(app)
+            .post('/auth/login')
+            .send({ email: datosValidos.email, password: datosValidos.password });
+        
+        
+
+        expect(response.status).toBe(200);
+        expect(response.body.token).toBeTypeOf('string');
+        
+        const payload = jwt.verify(response.body.token, process.env.JWT_SECRET as string);
+        expect(payload).toHaveProperty('sub', String(response.body.user.id));
+        expect(response.body.user).not.toHaveProperty('passwordHash');
+    });
+
+    it('responde 401 si la contraseña es incorrecta', async () => {
+        await request(app).post('/auth/register').send(datosValidos);
+
+        const response = await request(app)
+            .post('/auth/login')
+            .send({ email: datosValidos.email, password: 'otra-clave-incorrecta' });
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'Credenciales invalidas' });
+        expect(response.body).not.toHaveProperty('token');
+    });
+
+    it('responde 401 con el mismo cuerpo si el email no existe', async () => {
+        await request(app).post('/auth/register').send(datosValidos);
+
+        const passwordIncorrecta = await request(app)
+            .post('/auth/login')
+            .send({ email: datosValidos.email, password: 'otra-clave-incorrecta' });
+
+        const emailInexistente = await request(app)
+            .post('/auth/login')
+            .send({ email: 'nadie@mail.com', password: datosValidos.password });
+
+        expect(emailInexistente.status).toBe(401);
+        expect(emailInexistente.status).toBe(passwordIncorrecta.status);
+        expect(emailInexistente.body).toEqual(passwordIncorrecta.body);
+    });
+
+    it('responde 400 si falta la contraseña', async () => {
+        const response = await request(app)
+            .post('/auth/login')
+            .send({ email: datosValidos.email });
+
+        expect(response.status).toBe(400);
+        expect(response.body.fields).toHaveProperty('password');
+    });
+
+    it('acepta el email con otra capitalización', async () => {
+        await request(app).post('/auth/register').send(datosValidos);
+
+        const response = await request(app)
+            .post('/auth/login')
+            .send({ email: ' ANA@Mail.COM ', password: datosValidos.password });
+
+        expect(response.status).toBe(200);
+        expect(response.body.token).toBeTypeOf('string');
     });
 });
