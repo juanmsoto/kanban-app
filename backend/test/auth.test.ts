@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import app from "../src/app.js";
 import { db } from "../src/db/client.js";
 import { users } from "../src/db/schema.js";
+import { jwtSecret } from "../src/config.js";
 
 const datosValidos = {
     name: 'Ana',
@@ -132,5 +133,116 @@ describe('POST /auth/login', () => {
 
         expect(response.status).toBe(200);
         expect(response.body.token).toBeTypeOf('string');
+    });
+});
+
+describe('GET /auth/me', () => {
+    async function registrarYLoguear() {
+        await request(app).post('/auth/register').send(datosValidos);
+        const login = await request(app)
+            .post('/auth/login')
+            .send({ email: datosValidos.email, password: datosValidos.password });
+        return login.body as { token: string; user: { id: number } };
+    }
+
+    it('devuelve el usuario con un token válido', async () => {
+        const { token, user } = await registrarYLoguear();
+
+        const response = await request(app)
+            .get('/auth/me')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.user).toEqual({
+            id: user.id,
+            name: datosValidos.name,
+            email: datosValidos.email,
+        });
+        expect(response.body.user).not.toHaveProperty('passwordHash');
+    });
+
+    it('responde 401 sin header Authorization', async () => {
+        const response = await request(app).get('/auth/me');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    it('responde 401 si el header no es Bearer', async () => {
+        const { token } = await registrarYLoguear();
+
+        const response = await request(app)
+            .get('/auth/me')
+            .set('Authorization', `Basic ${token}`);
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    it('responde 401 si Bearer viene sin token', async () => {
+        const response = await request(app)
+            .get('/auth/me')
+            .set('Authorization', 'Bearer');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    it('responde 401 si el token es basura', async () => {
+        const response = await request(app)
+            .get('/auth/me')
+            .set('Authorization', 'Bearer esto-no-es-un-jwt');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    it('responde 401 si el token está firmado con otro secreto', async () => {
+        const { user } = await registrarYLoguear();
+        const falso = jwt.sign({ sub: String(user.id) }, 'otro-secreto-distinto', { expiresIn: '1h' });
+
+        const response = await request(app)
+            .get('/auth/me')
+            .set('Authorization', `Bearer ${falso}`);
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    it('responde 401 si el token está vencido', async () => {
+        const { user } = await registrarYLoguear();
+        const haceDiezSegundos = Math.floor(Date.now() / 1000) - 10;
+        const vencido = jwt.sign({ sub: String(user.id), exp: haceDiezSegundos }, jwtSecret);
+
+        const response = await request(app)
+            .get('/auth/me')
+            .set('Authorization', `Bearer ${vencido}`);
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    it('responde 401 si el token no tiene firma (alg none)', async () => {
+        const { user } = await registrarYLoguear();
+        const sinFirma = jwt.sign({ sub: String(user.id) }, '', { algorithm: 'none' });
+
+        const response = await request(app)
+            .get('/auth/me')
+            .set('Authorization', `Bearer ${sinFirma}`);
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    it('responde 401 si el usuario del token ya no existe', async () => {
+        const { token } = await registrarYLoguear();
+        await db.delete(users);
+
+        const response = await request(app)
+            .get('/auth/me')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
     });
 });

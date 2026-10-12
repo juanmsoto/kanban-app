@@ -3,16 +3,12 @@ import jwt from 'jsonwebtoken';
 import { DatabaseError } from 'pg';
 import { DrizzleQueryError, eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
+import { jwtSecret } from '../../config.js';
 import { users } from '../../db/schema.js';
 import type { RegisterInput, LoginInput } from './auth.schemas.js';
 
 const BCRYPT_ROUNDS = 10;
 const JWT_EXPIRES_IN = '1h';
-
-const jwtSecret = process.env.JWT_SECRET;
-if(!jwtSecret) {
-    throw new Error('Falta JWT_SECRET en el .env');
-}
 
 // Hash de relleno: si el email no existe igual hacemos un compare, para que
 // "email inexistente" y "contrasena incorrecta" tarden lo mismo.
@@ -66,7 +62,7 @@ export async function loginUser({ email, password }: LoginInput) {
         throw new InvalidCredentialsError();
     }
 
-    const token = jwt.sign({ sub: String(user.id) }, jwtSecret as string, {
+    const token = jwt.sign({ sub: String(user.id) }, jwtSecret, {
         expiresIn: JWT_EXPIRES_IN,
     });
 
