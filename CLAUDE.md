@@ -77,3 +77,11 @@ Español rioplatense con "vos", informal y directo, sin emojis, sin elogios exce
 
 ## Mantenimiento de PROGRESO.md
 Es un registro vivo. Actualizalo en el momento en que se cierra un paso, sin que te lo pidan.
+
+**Regla permanente: `PROGRESO.md` debe estar siempre listo para un traspaso.** Juan puede abrir una sesión nueva de Claude en cualquier momento, sin aviso, y esa sesión solo cuenta con `CLAUDE.md` y `PROGRESO.md` (no recuerda esta conversación). Por eso, cada vez que se cierra un paso, se toma una decisión o se descubre algo importante, la sección "Dónde estamos y qué sigue" tiene que dejar, sin depender de ningún otro contexto:
+1. **Estado actual**: fecha, rama activa, último commit, si hay cambios sin commitear y el resultado de los tests.
+2. **Próximo paso concreto**: qué hay que hacer, quién lo escribe (Juan o Claude), con el detalle suficiente para empezar (decisión ya tomada, problema verificado, cómo comprobar que quedó bien).
+3. **Decisiones pendientes** que esperan respuesta de Juan, con sus opciones.
+4. **Hallazgos o riesgos abiertos** (por ejemplo, un problema de seguridad anotado y todavía sin corregir).
+
+Además, las decisiones tomadas (con su porqué), los conceptos cubiertos y las dudas que costaron se registran en el momento, no al final de la sesión. Antes de terminar un turno donde se haya cerrado algo, verificá que el estado escrito coincida con la realidad (`git status`, `git log`, tests) y no con lo que se recuerda.

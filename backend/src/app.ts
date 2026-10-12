@@ -1,7 +1,9 @@
 import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response } from 'express';
 import { sql } from 'drizzle-orm';
 import { db } from './db/client.js';
+import authRoutes from './modules/auth/auth.routes.js';
+import { notFound, errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
 
@@ -13,30 +15,11 @@ app.get('/health', async (_req: Request, res: Response) => {
   res.json({ status: 'ok' });
 });
 
-// Ninguna ruta anterior respondió: 404 en JSON (nada de vistas ni redirects).
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: 'No encontrado' });
-});
+// Rutas auth
+app.use('/auth', authRoutes);
 
-// Manejador de errores: Express lo reconoce por tener 4 parámetros.
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  const status =
-    typeof err === 'object' &&
-    err !== null &&
-    'status' in err &&
-    typeof err.status === 'number' &&
-    err.status >= 400 &&
-    err.status < 500
-      ? err.status
-      : 500;
-
-  if (status === 500) {
-    console.error(err);
-  }
-
-  res.status(status).json({
-    error: status === 500 ? 'Error interno del servidor' : 'Solicitud inválida',
-  });
-});
+// Manejador de rutas no encontradas y errores: primero el 404, después el manejador de errores.
+app.use(notFound);
+app.use(errorHandler);
 
 export default app;

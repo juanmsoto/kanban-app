@@ -14,13 +14,18 @@
   "description": "API JSON del tablero Kanban",
   "private": true,
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "dotenv": "^18.0.5",
     "drizzle-orm": "1.0.0-rc.4",
     "express": "^5.2.1",
-    "pg": "^8.23.1"
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.23.1",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
