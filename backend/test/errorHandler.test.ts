@@ -3,6 +3,7 @@ import { inspect } from 'node:util';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { DatabaseError } from 'pg';
 import { errorHandler } from '../src/middlewares/errorHandler.js';
+import { BoardNotFoundError, ForbiddenError } from '../src/errors.js';
 
 describe('errorHandler', () => {
     it('no vuelca el password_hash en el log cuando falla una consulta', () => {
@@ -31,5 +32,29 @@ describe('errorHandler', () => {
 
         expect(res.status).toHaveBeenCalledWith(500);
         expect(logueado).not.toContain('HASH_DE_PRUEBA');
+    });
+
+    it('traduce BoardNotFoundError a 404 sin loguear', () => {
+        const grabadora = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+
+        errorHandler(new BoardNotFoundError(), {} as never, res as never, vi.fn());
+
+        expect(res.status).toHaveBeenCalledWith(404);
+        expect(res.json).toHaveBeenCalledWith({ error: 'No encontrado' });
+        expect(grabadora).not.toHaveBeenCalled();
+        grabadora.mockRestore();
+    });
+
+    it('traduce ForbiddenError a 403 sin loguear', () => {
+        const grabadora = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+
+        errorHandler(new ForbiddenError(), {} as never, res as never, vi.fn());
+
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Prohibido' });
+        expect(grabadora).not.toHaveBeenCalled();
+        grabadora.mockRestore();
     });
 });

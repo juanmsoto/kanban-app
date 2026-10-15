@@ -5,6 +5,7 @@ import app from "../src/app.js";
 import { db } from "../src/db/client.js";
 import { users } from "../src/db/schema.js";
 import { jwtSecret } from "../src/config.js";
+import { crearUsuarioYToken } from "./helpers.js";
 
 const datosValidos = {
     name: 'Ana',
@@ -137,16 +138,8 @@ describe('POST /auth/login', () => {
 });
 
 describe('GET /auth/me', () => {
-    async function registrarYLoguear() {
-        await request(app).post('/auth/register').send(datosValidos);
-        const login = await request(app)
-            .post('/auth/login')
-            .send({ email: datosValidos.email, password: datosValidos.password });
-        return login.body as { token: string; user: { id: number } };
-    }
-
     it('devuelve el usuario con un token válido', async () => {
-        const { token, user } = await registrarYLoguear();
+        const { token, user } = await crearUsuarioYToken();
 
         const response = await request(app)
             .get('/auth/me')
@@ -169,7 +162,7 @@ describe('GET /auth/me', () => {
     });
 
     it('responde 401 si el header no es Bearer', async () => {
-        const { token } = await registrarYLoguear();
+        const { token } = await crearUsuarioYToken();
 
         const response = await request(app)
             .get('/auth/me')
@@ -198,7 +191,7 @@ describe('GET /auth/me', () => {
     });
 
     it('responde 401 si el token está firmado con otro secreto', async () => {
-        const { user } = await registrarYLoguear();
+        const { user } = await crearUsuarioYToken();
         const falso = jwt.sign({ sub: String(user.id) }, 'otro-secreto-distinto', { expiresIn: '1h' });
 
         const response = await request(app)
@@ -210,7 +203,7 @@ describe('GET /auth/me', () => {
     });
 
     it('responde 401 si el token está vencido', async () => {
-        const { user } = await registrarYLoguear();
+        const { user } = await crearUsuarioYToken();
         const haceDiezSegundos = Math.floor(Date.now() / 1000) - 10;
         const vencido = jwt.sign({ sub: String(user.id), exp: haceDiezSegundos }, jwtSecret);
 
@@ -223,7 +216,7 @@ describe('GET /auth/me', () => {
     });
 
     it('responde 401 si el token no tiene firma (alg none)', async () => {
-        const { user } = await registrarYLoguear();
+        const { user } = await crearUsuarioYToken();
         const sinFirma = jwt.sign({ sub: String(user.id) }, '', { algorithm: 'none' });
 
         const response = await request(app)
@@ -235,7 +228,7 @@ describe('GET /auth/me', () => {
     });
 
     it('responde 401 si el usuario del token ya no existe', async () => {
-        const { token } = await registrarYLoguear();
+        const { token } = await crearUsuarioYToken();
         await db.delete(users);
 
         const response = await request(app)
