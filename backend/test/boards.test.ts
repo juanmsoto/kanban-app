@@ -18,7 +18,8 @@ describe('POST /boards', () => {
             .send({ name: 'Mi tablero', description: 'Primer tablero' });
 
         expect(response.status).toBe(201);
-        expect(response.body.board.name).toBe('Mi tablero');
+        expect(response.body).toMatchObject({ name: 'Mi tablero', description: 'Primer tablero', role: 'owner' });
+        expect(response.body).not.toHaveProperty('board');
 
         const filasBoards = await db.select().from(boards);
         expect(filasBoards).toHaveLength(1);
@@ -26,7 +27,7 @@ describe('POST /boards', () => {
         const membresias = await db
             .select()
             .from(boardMembers)
-            .where(eq(boardMembers.boardId, response.body.board.id));
+            .where(eq(boardMembers.boardId, response.body.id));
 
         expect(membresias).toHaveLength(1);
         expect(membresias[0]).toMatchObject({ userId: user.id, role: 'owner' });
@@ -78,7 +79,7 @@ async function crearTablero(token: string, name = 'Mi tablero') {
         .post('/boards')
         .set('Authorization', `Bearer ${token}`)
         .send({ name });
-    return response.body.board.id as number;
+    return response.body.id as number;
 }
 
 describe('GET /boards/:id', () => {
@@ -91,8 +92,8 @@ describe('GET /boards/:id', () => {
             .set('Authorization', `Bearer ${token}`);
 
         expect(response.status).toBe(200);
-        expect(response.body.board).toMatchObject({ id: boardId, name: 'Mi tablero' });
-        expect(response.body.role).toBe('owner');
+        expect(response.body).toMatchObject({ id: boardId, name: 'Mi tablero', role: 'owner' });
+        expect(response.body).not.toHaveProperty('board');
     });
 
     it('devuelve el tablero con rol viewer a un miembro viewer', async () => {
@@ -125,7 +126,7 @@ describe('GET /boards/:id', () => {
         expect(deAjeno.status).toBe(404);
         expect(deAjeno.status).toBe(inexistente.status);
         expect(deAjeno.body).toEqual(inexistente.body);
-        expect(deAjeno.body).not.toHaveProperty('board');
+        expect(deAjeno.body).not.toHaveProperty('name');
     });
 
     it.each(['abc', '0', '-1', '1.5', '99999999999'])(
@@ -144,6 +145,74 @@ describe('GET /boards/:id', () => {
 
     it('responde 401 sin token', async () => {
         const response = await request(app).get('/boards/1');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+});
+
+describe('GET /boards', () => {
+    it('devuelve [] si el usuario no tiene tableros', async () => {
+        const { token } = await crearUsuarioYToken();
+
+        const response = await request(app)
+            .get('/boards')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual([]);
+    });
+
+    it('lista solo los tableros del usuario, con el rol correcto en cada uno', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const propio = await crearTablero(ana.token, 'De Ana');
+        const compartido = await crearTablero(beto.token, 'De Beto compartido');
+        const ajeno = await crearTablero(beto.token, 'De Beto privado');
+        await db.insert(boardMembers).values({ boardId: compartido, userId: ana.user.id, role: 'viewer' });
+
+        const response = await request(app)
+            .get('/boards')
+            .set('Authorization', `Bearer ${ana.token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveLength(2);
+
+        const porId = new Map(response.body.map((b: { id: number; role: string }) => [b.id, b.role]));
+        expect(porId.get(propio)).toBe('owner');
+        expect(porId.get(compartido)).toBe('viewer');
+        expect(porId.has(ajeno)).toBe(false);
+    });
+
+    it('devuelve objetos planos con los campos del tablero y el rol', async () => {
+        const { token } = await crearUsuarioYToken();
+        await crearTablero(token);
+
+        const response = await request(app)
+            .get('/boards')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(Object.keys(response.body[0]).sort()).toEqual(
+            ['createdAt', 'description', 'id', 'name', 'role', 'updatedAt'],
+        );
+    });
+
+    it('ordena del mas nuevo al mas viejo', async () => {
+        const { token } = await crearUsuarioYToken();
+        const primero = await crearTablero(token, 'Primero');
+        const segundo = await crearTablero(token, 'Segundo');
+        const tercero = await crearTablero(token, 'Tercero');
+
+        const response = await request(app)
+            .get('/boards')
+            .set('Authorization', `Bearer ${token}`);
+
+        const ids = response.body.map((b: { id: number }) => b.id);
+        expect(ids).toEqual([tercero, segundo, primero]);
+    });
+
+    it('responde 401 sin token', async () => {
+        const response = await request(app).get('/boards');
 
         expect(response.status).toBe(401);
         expect(response.body).toEqual({ error: 'No autenticado' });
