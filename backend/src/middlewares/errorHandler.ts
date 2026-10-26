@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { DatabaseError } from 'pg';
 import { DrizzleQueryError } from 'drizzle-orm';
-import { BoardNotFoundError, ForbiddenError } from '../errors.js';
+import { AlreadyMemberError, BoardNotFoundError, ForbiddenError, UserNotFoundError } from '../errors.js';
 
 // Loguea el error sin volcar los parametros de la consulta (traen el password_hash).
 function logError(err: unknown) {
@@ -39,6 +39,16 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
 
     if(err instanceof ForbiddenError) {
         res.status(403).json({ error: 'Prohibido' });
+        return;
+    }
+    
+    if(err instanceof UserNotFoundError) {
+        res.status(404).json({ error: 'Usuario no encontrado' });
+        return;
+    }
+
+    if(err instanceof AlreadyMemberError) {
+        res.status(409).json({ error: 'El usuario ya es miembro del tablero' });
         return;
     }
 

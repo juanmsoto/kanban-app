@@ -6,3 +6,9 @@ export class BoardNotFoundError extends Error {}
 
 // Es miembro, pero su rol no alcanza para la operacion.
 export class ForbiddenError extends Error {}
+
+// El email que se quiere agregar como miembro no pertenece a ningun usuario.
+export class UserNotFoundError extends Error {}
+
+// El usuario ya es miembro del tablero (para cambiarle el rol se usa PATCH).
+export class AlreadyMemberError extends Error {}

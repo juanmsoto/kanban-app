@@ -310,6 +310,186 @@ describe('GET /boards/:id/members', () => {
     });
 });
 
+describe('POST /boards/:id/members', () => {
+    it('el owner agrega a un usuario por email y el tablero le aparece en GET /boards', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const nuevo = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${dueño.token}`)
+            .send({ email: 'beto@mail.com', role: 'editor' });
+
+        expect(response.status).toBe(201);
+        expect(response.body).toEqual({ id: nuevo.user.id, name: 'Beto', email: 'beto@mail.com', role: 'editor' });
+        expect(JSON.stringify(response.body)).not.toMatch(/password/i);
+
+        const lista = await request(app)
+            .get('/boards')
+            .set('Authorization', `Bearer ${nuevo.token}`);
+
+        expect(lista.body).toHaveLength(1);
+        expect(lista.body[0]).toMatchObject({ id: boardId, role: 'editor' });
+    });
+
+    it('normaliza el email (espacios y mayusculas)', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const nuevo = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${dueño.token}`)
+            .send({ email: '  BETO@Mail.com ', role: 'viewer' });
+
+        expect(response.status).toBe(201);
+        expect(response.body.id).toBe(nuevo.user.id);
+    });
+
+    it('responde 409 si ya es miembro y no le cambia el rol', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const miembro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: miembro.user.id, role: 'viewer' });
+
+        const response = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${dueño.token}`)
+            .send({ email: 'beto@mail.com', role: 'owner' });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: 'El usuario ya es miembro del tablero' });
+
+        const filas = await db.select().from(boardMembers).where(eq(boardMembers.userId, miembro.user.id));
+        expect(filas).toHaveLength(1);
+        expect(filas[0]?.role).toBe('viewer');
+    });
+
+    it('responde 409 si el owner se agrega a si mismo', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${dueño.token}`)
+            .send({ email: 'ana@mail.com', role: 'viewer' });
+
+        expect(response.status).toBe(409);
+        const filas = await db.select().from(boardMembers).where(eq(boardMembers.boardId, boardId));
+        expect(filas).toHaveLength(1);
+        expect(filas[0]?.role).toBe('owner');
+    });
+
+    it('responde 404 si el email no pertenece a ningun usuario y no crea nada', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${dueño.token}`)
+            .send({ email: 'nadie@mail.com', role: 'viewer' });
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: 'Usuario no encontrado' });
+        expect(await db.select().from(boardMembers)).toHaveLength(1);
+    });
+
+    it.each(['editor', 'viewer'] as const)('responde 403 si quien pide es %s y no agrega a nadie', async (rol) => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const solicitante = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const candidato = await crearUsuarioYToken('carla@mail.com', 'Carla');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: solicitante.user.id, role: rol });
+
+        const response = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${solicitante.token}`)
+            .send({ email: 'carla@mail.com', role: 'viewer' });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: 'Prohibido' });
+        const filas = await db.select().from(boardMembers).where(eq(boardMembers.userId, candidato.user.id));
+        expect(filas).toHaveLength(0);
+    });
+
+    it('responde 404 a quien no es miembro, sin revelar si el email existe', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const ajeno = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        await crearUsuarioYToken('carla@mail.com', 'Carla');
+        const boardId = await crearTablero(dueño.token);
+
+        const conEmailReal = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${ajeno.token}`)
+            .send({ email: 'carla@mail.com', role: 'viewer' });
+
+        const conEmailInexistente = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${ajeno.token}`)
+            .send({ email: 'nadie@mail.com', role: 'viewer' });
+
+        expect(conEmailReal.status).toBe(404);
+        expect(conEmailReal.body).toEqual(conEmailInexistente.body);
+        expect(conEmailReal.body).toEqual({ error: 'No encontrado' });
+    });
+
+    it.each([
+        ['sin role', { email: 'beto@mail.com' }, 'role'],
+        ['con un role inexistente', { email: 'beto@mail.com', role: 'admin' }, 'role'],
+        ['sin email', { role: 'viewer' }, 'email'],
+        ['con un email invalido', { email: 'no-es-un-email', role: 'viewer' }, 'email'],
+    ])('responde 400 %s y no agrega a nadie', async (_caso, body, campo) => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${dueño.token}`)
+            .send(body);
+
+        expect(response.status).toBe(400);
+        expect(response.body.fields).toHaveProperty(campo);
+        expect(await db.select().from(boardMembers)).toHaveLength(1);
+    });
+
+    it('responde 400 sin body', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${dueño.token}`);
+
+        expect(response.status).toBe(400);
+    });
+
+    it.each(['abc', '0', '-1', '1.5', '99999999999'])(
+        'responde 404 (no 500) si el id es %s',
+        async (idInvalido) => {
+            const { token } = await crearUsuarioYToken();
+
+            const response = await request(app)
+                .post(`/boards/${idInvalido}/members`)
+                .set('Authorization', `Bearer ${token}`)
+                .send({ email: 'ana@mail.com', role: 'viewer' });
+
+            expect(response.status).toBe(404);
+            expect(response.body).toEqual({ error: 'No encontrado' });
+        },
+    );
+
+    it('responde 401 sin token', async () => {
+        const response = await request(app)
+            .post('/boards/1/members')
+            .send({ email: 'ana@mail.com', role: 'viewer' });
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+});
+
 describe('assertBoardRole', () => {
     it('deja pasar si el rol alcanza y devuelve el rol', async () => {
         const { token, user } = await crearUsuarioYToken();

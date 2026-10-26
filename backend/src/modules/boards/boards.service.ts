@@ -1,9 +1,10 @@
 import { db } from "../../db/client.js";
 import { boardMembers, boards, users } from "../../db/schema.js";
-import type { CreateBoardInput } from "./boards.schemas.js";
+import type { AddMemberInput, CreateBoardInput } from "./boards.schemas.js";
 import { boardRole } from '../../db/schema.js';
-import { and, desc, asc, eq } from "drizzle-orm";
-import { BoardNotFoundError, ForbiddenError } from "../../errors.js";
+import { and, desc, asc, eq, DrizzleQueryError } from "drizzle-orm";
+import { AlreadyMemberError, BoardNotFoundError, ForbiddenError, UserNotFoundError } from "../../errors.js";
+import { DatabaseError } from "pg";
 
 type BoardRole = (typeof boardRole.enumValues)[number];
 
@@ -12,6 +13,15 @@ const RANGOS: Record<BoardRole, number> = {
     editor: 2,
     owner: 3,
 };
+
+function esMiembroDuplicado(error: unknown): boolean {
+    return (
+        error instanceof DrizzleQueryError &&
+        error.cause instanceof DatabaseError &&
+        error.cause.code === '23505' &&
+        error.cause.constraint === 'board_members_pkey'
+    );
+}
 
 export async function createBoard(userId: number, { name, description }: CreateBoardInput) {
     return db.transaction(async (tx) => {
@@ -96,4 +106,28 @@ export async function listMembers(userId: number, boardId: number) {
         .innerJoin(users, eq(boardMembers.userId, users.id))
         .where(eq(boardMembers.boardId, boardId))
         .orderBy(asc(boardMembers.createdAt), asc(users.id));
+}
+
+export async function addMember(userId: number, boardId: number, { email, role }: AddMemberInput) {
+    await assertBoardRole(userId, boardId, 'owner');
+
+    const [user] = await db
+        .select({ id: users.id, name: users.name, email: users.email })
+        .from(users)
+        .where(eq(users.email, email));
+
+    if(!user) {
+        throw new UserNotFoundError();
+    }
+
+    try {
+        await db.insert(boardMembers).values({ boardId, userId: user.id, role });
+    } catch(error) {
+        if(esMiembroDuplicado(error)) {
+            throw new AlreadyMemberError();
+        }
+        throw error;
+    }
+
+    return { id: user.id, name: user.name, email: user.email, role };
 }
