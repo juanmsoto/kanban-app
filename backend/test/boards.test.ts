@@ -219,6 +219,97 @@ describe('GET /boards', () => {
     });
 });
 
+describe('GET /boards/:id/members', () => {
+    it('lista a los miembros con su rol, del mas antiguo al mas nuevo, sin datos sensibles', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const editor = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const lector = await crearUsuarioYToken('carla@mail.com', 'Carla');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: editor.user.id, role: 'editor' });
+        await db.insert(boardMembers).values({ boardId, userId: lector.user.id, role: 'viewer' });
+
+        const response = await request(app)
+            .get(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${dueño.token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual([
+            { id: dueño.user.id, name: 'Ana', email: 'ana@mail.com', role: 'owner' },
+            { id: editor.user.id, name: 'Beto', email: 'beto@mail.com', role: 'editor' },
+            { id: lector.user.id, name: 'Carla', email: 'carla@mail.com', role: 'viewer' },
+        ]);
+        expect(JSON.stringify(response.body)).not.toMatch(/password/i);
+    });
+
+    it('un viewer tambien puede listar los miembros', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const lector = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: lector.user.id, role: 'viewer' });
+
+        const response = await request(app)
+            .get(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${lector.token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveLength(2);
+    });
+
+    it('solo lista los miembros de ese tablero, no los de otros', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const tableroDeAna = await crearTablero(ana.token);
+        await crearTablero(beto.token);
+
+        const response = await request(app)
+            .get(`/boards/${tableroDeAna}/members`)
+            .set('Authorization', `Bearer ${ana.token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0].email).toBe('ana@mail.com');
+    });
+
+    it('responde 404 a quien no es miembro, igual que a un tablero inexistente', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const ajeno = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const deAjeno = await request(app)
+            .get(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${ajeno.token}`);
+
+        const inexistente = await request(app)
+            .get('/boards/999999/members')
+            .set('Authorization', `Bearer ${ajeno.token}`);
+
+        expect(deAjeno.status).toBe(404);
+        expect(deAjeno.body).toEqual(inexistente.body);
+        expect(deAjeno.body).not.toHaveProperty('email');
+    });
+
+    it.each(['abc', '0', '-1', '1.5', '99999999999'])(
+        'responde 404 (no 500) si el id es %s',
+        async (idInvalido) => {
+            const { token } = await crearUsuarioYToken();
+
+            const response = await request(app)
+                .get(`/boards/${idInvalido}/members`)
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(response.status).toBe(404);
+            expect(response.body).toEqual({ error: 'No encontrado' });
+        },
+    );
+
+    it('responde 401 sin token', async () => {
+        const response = await request(app).get('/boards/1/members');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+});
+
 describe('assertBoardRole', () => {
     it('deja pasar si el rol alcanza y devuelve el rol', async () => {
         const { token, user } = await crearUsuarioYToken();

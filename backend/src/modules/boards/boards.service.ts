@@ -1,8 +1,8 @@
 import { db } from "../../db/client.js";
-import { boardMembers, boards } from "../../db/schema.js";
+import { boardMembers, boards, users } from "../../db/schema.js";
 import type { CreateBoardInput } from "./boards.schemas.js";
 import { boardRole } from '../../db/schema.js';
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, asc, eq } from "drizzle-orm";
 import { BoardNotFoundError, ForbiddenError } from "../../errors.js";
 
 type BoardRole = (typeof boardRole.enumValues)[number];
@@ -80,4 +80,20 @@ export async function listBoards(userId: number) {
         .innerJoin(boards, eq(boardMembers.boardId, boards.id))
         .where(eq(boardMembers.userId, userId))
         .orderBy(desc(boards.createdAt), desc(boards.id));
+}
+
+export async function listMembers(userId: number, boardId: number) {
+    await assertBoardRole(userId, boardId, 'viewer');
+
+    return db
+        .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            role: boardMembers.role,
+        })
+        .from(boardMembers)
+        .innerJoin(users, eq(boardMembers.userId, users.id))
+        .where(eq(boardMembers.boardId, boardId))
+        .orderBy(asc(boardMembers.createdAt), asc(users.id));
 }
