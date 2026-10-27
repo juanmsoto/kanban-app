@@ -698,6 +698,181 @@ describe('PATCH /boards/:id/members/:userId', () => {
     });
 });
 
+describe('DELETE /boards/:id/members/:userId', () => {
+    async function esMiembro(boardId: number, userId: number) {
+        const filas = await db
+            .select()
+            .from(boardMembers)
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, userId)));
+        return filas.length > 0;
+    }
+
+    function quitar(token: string, boardId: number | string, userId: number | string) {
+        return request(app)
+            .delete(`/boards/${boardId}/members/${userId}`)
+            .set('Authorization', `Bearer ${token}`);
+    }
+
+    it('el owner quita a un miembro: 204 sin cuerpo y el miembro pierde el acceso', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const miembro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: miembro.user.id, role: 'editor' });
+
+        const response = await quitar(dueño.token, boardId, miembro.user.id);
+
+        expect(response.status).toBe(204);
+        expect(response.text).toBe('');
+        expect(await esMiembro(boardId, miembro.user.id)).toBe(false);
+
+        const detalle = await request(app).get(`/boards/${boardId}`).set('Authorization', `Bearer ${miembro.token}`);
+        expect(detalle.status).toBe(404);
+
+        const lista = await request(app).get('/boards').set('Authorization', `Bearer ${miembro.token}`);
+        expect(lista.body).toEqual([]);
+    });
+
+    it.each(['editor', 'viewer'] as const)('un %s puede salirse solo del tablero', async (rol) => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const miembro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: miembro.user.id, role: rol });
+
+        const response = await quitar(miembro.token, boardId, miembro.user.id);
+
+        expect(response.status).toBe(204);
+        expect(await esMiembro(boardId, miembro.user.id)).toBe(false);
+        expect(await esMiembro(boardId, dueño.user.id)).toBe(true);
+    });
+
+    it('con dos owners, uno puede quitar al otro y tambien salirse solo', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(ana.token);
+        await db.insert(boardMembers).values({ boardId, userId: beto.user.id, role: 'owner' });
+
+        const salida = await quitar(beto.token, boardId, beto.user.id);
+        expect(salida.status).toBe(204);
+        expect(await esMiembro(boardId, ana.user.id)).toBe(true);
+
+        await db.insert(boardMembers).values({ boardId, userId: beto.user.id, role: 'owner' });
+
+        const expulsion = await quitar(ana.token, boardId, beto.user.id);
+        expect(expulsion.status).toBe(204);
+        expect(await esMiembro(boardId, beto.user.id)).toBe(false);
+    });
+
+    it('responde 409 si el unico owner intenta salirse y sigue siendo miembro', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await quitar(dueño.token, boardId, dueño.user.id);
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+        expect(await esMiembro(boardId, dueño.user.id)).toBe(true);
+    });
+
+    it.each(['editor', 'viewer'] as const)('responde 403 si un %s intenta quitar a otro miembro', async (rol) => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const solicitante = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: solicitante.user.id, role: rol });
+
+        const response = await quitar(solicitante.token, boardId, dueño.user.id);
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: 'Prohibido' });
+        expect(await esMiembro(boardId, dueño.user.id)).toBe(true);
+    });
+
+    it('responde 404 a quien no es miembro, igual que a un tablero inexistente, tanto al quitar a otro como a si mismo', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const ajeno = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const aOtro = await quitar(ajeno.token, boardId, dueño.user.id);
+        const aSiMismo = await quitar(ajeno.token, boardId, ajeno.user.id);
+        const inexistente = await quitar(ajeno.token, 999999, dueño.user.id);
+
+        expect(aOtro.status).toBe(404);
+        expect(aOtro.body).toEqual(inexistente.body);
+        expect(aSiMismo.status).toBe(404);
+        expect(aSiMismo.body).toEqual(inexistente.body);
+        expect(await esMiembro(boardId, dueño.user.id)).toBe(true);
+    });
+
+    it('responde 404 si el usuario indicado no es miembro del tablero', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const otro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await quitar(dueño.token, boardId, otro.user.id);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: 'Miembro no encontrado' });
+    });
+
+    it.each([
+        ['abc', '1'],
+        ['1', 'abc'],
+        ['1', '0'],
+        ['1', '99999999999'],
+    ])('responde 404 (no 500) con ids invalidos %s / %s', async (boardId, userId) => {
+        const { token } = await crearUsuarioYToken();
+
+        const response = await quitar(token, boardId, userId);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: 'No encontrado' });
+    });
+
+    it('responde 401 sin token', async () => {
+        const response = await request(app).delete('/boards/1/members/1');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    // Misma carrera determinista que en PATCH: la transaccion "A" (a mano) bloquea los owners y borra a Beto sin
+    // confirmar. Beto (aun owner para el mundo) pide quitar a Ana: tiene que esperar, recontar y recibir 409.
+    it('un pedido que espera el bloqueo vuelve a contar los owners y no deja el tablero sin owner', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(ana.token);
+        await db.insert(boardMembers).values({ boardId, userId: beto.user.id, role: 'owner' });
+
+        const conexionA = await pool.connect();
+        try {
+            await conexionA.query('BEGIN');
+            await conexionA.query(
+                `SELECT user_id FROM board_members WHERE board_id = $1 AND role = 'owner' FOR UPDATE`,
+                [boardId],
+            );
+            await conexionA.query(
+                `DELETE FROM board_members WHERE board_id = $1 AND user_id = $2`,
+                [boardId, beto.user.id],
+            );
+
+            const pedidoDeBeto = quitar(beto.token, boardId, ana.user.id).then((r) => r);
+
+            await new Promise((resolve) => setTimeout(resolve, 400));
+            await conexionA.query('COMMIT');
+
+            const respuesta = await pedidoDeBeto;
+
+            expect(respuesta.status).toBe(409);
+            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+        } finally {
+            await conexionA.query('ROLLBACK').catch(() => undefined);
+            conexionA.release();
+        }
+
+        expect(await esMiembro(boardId, ana.user.id)).toBe(true);
+        expect(await esMiembro(boardId, beto.user.id)).toBe(false);
+    });
+});
+
 describe('assertBoardRole', () => {
     it('deja pasar si el rol alcanza y devuelve el rol', async () => {
         const { token, user } = await crearUsuarioYToken();

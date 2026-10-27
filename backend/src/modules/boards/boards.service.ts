@@ -179,3 +179,33 @@ export async function updateMemberRole(
         return member;
     });
 }
+
+export async function removeMember(userId: number, boardId: number, targetUserId: number) {
+    const minimo: BoardRole = targetUserId === userId ? 'viewer' : 'owner';
+    await assertBoardRole(userId, boardId, minimo);
+
+    await db.transaction(async (tx) => {
+        const owners = await tx
+            .select({ userId: boardMembers.userId })
+            .from(boardMembers)
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.role, 'owner')))
+            .for('update');
+
+        const [target] = await tx
+            .select({ role: boardMembers.role })
+            .from(boardMembers)
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, targetUserId)));
+
+        if(!target) {
+            throw new MemberNotFoundError();
+        }
+
+        if(target.role === 'owner' && owners.length === 1) {
+            throw new LastOwnerError();
+        }
+
+        await tx
+            .delete(boardMembers)
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, targetUserId)));
+    });
+}
