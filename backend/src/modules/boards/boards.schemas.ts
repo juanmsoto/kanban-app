@@ -16,6 +16,17 @@ export const addMemberSchema = z.object({
     role: z.enum(boardRole.enumValues),
 });
 
+export const memberParamSchema = z.object({
+    id: z.coerce.number().int().positive().max(2_147_483_647),
+    userId: z.coerce.number().int().positive().max(2_147_483_647),
+});
+
+export const updateMemberSchema = z.object({
+    role: z.enum(boardRole.enumValues),
+});
+
+export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
+
 export type CreateBoardInput = z.infer<typeof createBoardSchema>;
 
 export type AddMemberInput = z.infer<typeof addMemberSchema>;

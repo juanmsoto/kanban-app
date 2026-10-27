@@ -1,9 +1,9 @@
 import { db } from "../../db/client.js";
 import { boardMembers, boards, users } from "../../db/schema.js";
-import type { AddMemberInput, CreateBoardInput } from "./boards.schemas.js";
+import type { AddMemberInput, CreateBoardInput, UpdateMemberInput } from "./boards.schemas.js";
 import { boardRole } from '../../db/schema.js';
 import { and, desc, asc, eq, DrizzleQueryError } from "drizzle-orm";
-import { AlreadyMemberError, BoardNotFoundError, ForbiddenError, UserNotFoundError } from "../../errors.js";
+import { AlreadyMemberError, BoardNotFoundError, ForbiddenError, LastOwnerError, MemberNotFoundError, UserNotFoundError } from "../../errors.js";
 import { DatabaseError } from "pg";
 
 type BoardRole = (typeof boardRole.enumValues)[number];
@@ -130,4 +130,52 @@ export async function addMember(userId: number, boardId: number, { email, role }
     }
 
     return { id: user.id, name: user.name, email: user.email, role };
+}
+
+export async function updateMemberRole(
+    userId: number,
+    boardId: number,
+    targetUserId: number,
+    { role }: UpdateMemberInput,
+) {
+    await assertBoardRole(userId, boardId, 'owner');
+
+    return db.transaction(async (tx) => {
+        const owners = await tx
+            .select({ userId: boardMembers.userId })
+            .from(boardMembers)
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.role, 'owner')))
+            .for('update');
+
+        const [target] = await tx
+            .select({ role: boardMembers.role })
+            .from(boardMembers)
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, targetUserId)));
+
+        if(!target) {
+            throw new MemberNotFoundError();
+        }
+
+        if(target.role === 'owner' && role !== 'owner' && owners.length === 1) {
+            throw new LastOwnerError();
+        }
+
+        await tx
+            .update(boardMembers)
+            .set({ role })
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, targetUserId)));
+
+        const [member] = await tx
+            .select({
+                id: users.id,
+                name: users.name,
+                email: users.email,
+                role: boardMembers.role,
+            })
+            .from(boardMembers)
+            .innerJoin(users, eq(boardMembers.userId, users.id))
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, targetUserId)));
+
+        return member;
+    });
 }

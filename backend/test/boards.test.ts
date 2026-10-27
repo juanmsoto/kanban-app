@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import app from '../src/app.js';
-import { db } from '../src/db/client.js';
+import { db, pool } from '../src/db/client.js';
 import { boards, boardMembers } from '../src/db/schema.js';
 import { crearUsuarioYToken } from './helpers.js';
 import { assertBoardRole } from '../src/modules/boards/boards.service.js';
@@ -487,6 +487,214 @@ describe('POST /boards/:id/members', () => {
 
         expect(response.status).toBe(401);
         expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+});
+
+describe('PATCH /boards/:id/members/:userId', () => {
+    async function rolDe(boardId: number, userId: number) {
+        const [fila] = await db
+            .select({ role: boardMembers.role })
+            .from(boardMembers)
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, userId)));
+        return fila?.role;
+    }
+
+    function cambiarRol(token: string, boardId: number | string, userId: number | string, body: object = { role: 'viewer' }) {
+        return request(app)
+            .patch(`/boards/${boardId}/members/${userId}`)
+            .set('Authorization', `Bearer ${token}`)
+            .send(body);
+    }
+
+    it('el owner cambia el rol de un miembro y el cambio se ve en GET /boards del miembro', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const miembro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: miembro.user.id, role: 'editor' });
+
+        const response = await cambiarRol(dueño.token, boardId, miembro.user.id, { role: 'viewer' });
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ id: miembro.user.id, name: 'Beto', email: 'beto@mail.com', role: 'viewer' });
+        expect(JSON.stringify(response.body)).not.toMatch(/password/i);
+        expect(await rolDe(boardId, miembro.user.id)).toBe('viewer');
+
+        const lista = await request(app).get('/boards').set('Authorization', `Bearer ${miembro.token}`);
+        expect(lista.body[0]).toMatchObject({ id: boardId, role: 'viewer' });
+    });
+
+    it('el owner puede promover a otro miembro a owner', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const miembro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: miembro.user.id, role: 'viewer' });
+
+        const response = await cambiarRol(dueño.token, boardId, miembro.user.id, { role: 'owner' });
+
+        expect(response.status).toBe(200);
+        expect(await rolDe(boardId, miembro.user.id)).toBe('owner');
+    });
+
+    it('con dos owners, uno puede degradar al otro y tambien a si mismo', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(ana.token);
+        await db.insert(boardMembers).values({ boardId, userId: beto.user.id, role: 'owner' });
+
+        const aBeto = await cambiarRol(ana.token, boardId, beto.user.id, { role: 'editor' });
+        expect(aBeto.status).toBe(200);
+
+        // Ahora Ana es la unica owner: Beto ya no puede, pero otro owner si podria autodegradarse. Se prueba abajo.
+        await db.update(boardMembers).set({ role: 'owner' }).where(eq(boardMembers.userId, beto.user.id));
+
+        const aSiMisma = await cambiarRol(ana.token, boardId, ana.user.id, { role: 'viewer' });
+        expect(aSiMisma.status).toBe(200);
+        expect(await rolDe(boardId, ana.user.id)).toBe('viewer');
+        expect(await rolDe(boardId, beto.user.id)).toBe('owner');
+    });
+
+    it('responde 409 si el unico owner intenta degradarse y sigue siendo owner', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await cambiarRol(dueño.token, boardId, dueño.user.id, { role: 'editor' });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+        expect(await rolDe(boardId, dueño.user.id)).toBe('owner');
+    });
+
+    it('el unico owner puede "cambiarse" a owner (no cambia nada) sin error', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await cambiarRol(dueño.token, boardId, dueño.user.id, { role: 'owner' });
+
+        expect(response.status).toBe(200);
+        expect(response.body.role).toBe('owner');
+    });
+
+    it.each(['editor', 'viewer'] as const)('responde 403 si quien pide es %s y no cambia nada', async (rol) => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const solicitante = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: solicitante.user.id, role: rol });
+
+        // Intenta subirse a si mismo a owner.
+        const response = await cambiarRol(solicitante.token, boardId, solicitante.user.id, { role: 'owner' });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: 'Prohibido' });
+        expect(await rolDe(boardId, solicitante.user.id)).toBe(rol);
+    });
+
+    it('responde 404 a quien no es miembro, igual que a un tablero inexistente', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const ajeno = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const deAjeno = await cambiarRol(ajeno.token, boardId, dueño.user.id, { role: 'viewer' });
+        const inexistente = await cambiarRol(ajeno.token, 999999, dueño.user.id, { role: 'viewer' });
+
+        expect(deAjeno.status).toBe(404);
+        expect(deAjeno.body).toEqual(inexistente.body);
+        expect(await rolDe(boardId, dueño.user.id)).toBe('owner');
+    });
+
+    it('responde 404 si el usuario indicado no es miembro del tablero', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const otro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const response = await cambiarRol(dueño.token, boardId, otro.user.id, { role: 'editor' });
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: 'Miembro no encontrado' });
+        expect(await rolDe(boardId, otro.user.id)).toBeUndefined();
+    });
+
+    it.each([
+        ['sin role', {}],
+        ['con un role inexistente', { role: 'admin' }],
+    ])('responde 400 %s y no cambia nada', async (_caso, body) => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const miembro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: miembro.user.id, role: 'editor' });
+
+        const response = await cambiarRol(dueño.token, boardId, miembro.user.id, body);
+
+        expect(response.status).toBe(400);
+        expect(response.body.fields).toHaveProperty('role');
+        expect(await rolDe(boardId, miembro.user.id)).toBe('editor');
+    });
+
+    it.each([
+        ['abc', '1'],
+        ['1', 'abc'],
+        ['0', '1'],
+        ['1', '0'],
+        ['1', '-1'],
+        ['1', '1.5'],
+        ['1', '99999999999'],
+    ])('responde 404 (no 500) con ids invalidos %s / %s', async (boardId, userId) => {
+        const { token } = await crearUsuarioYToken();
+
+        const response = await cambiarRol(token, boardId, userId);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: 'No encontrado' });
+    });
+
+    it('responde 401 sin token', async () => {
+        const response = await request(app)
+            .patch('/boards/1/members/1')
+            .send({ role: 'viewer' });
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    // Carrera determinista: una transaccion "A" (abierta a mano) bloquea las filas de los owners y degrada a Beto
+    // SIN confirmar todavia. Mientras tanto Beto (aun owner para el mundo) pide degradar a Ana. Ese pedido tiene que
+    // esperar el bloqueo y, cuando A confirma, volver a contar: ya hay un solo owner -> 409.
+    // Sin el FOR UPDATE el pedido de Beto no espera, cuenta 2 owners y pasa: el tablero queda sin owner.
+    it('un pedido que espera el bloqueo vuelve a contar los owners y no deja el tablero sin owner', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(ana.token);
+        await db.insert(boardMembers).values({ boardId, userId: beto.user.id, role: 'owner' });
+
+        const conexionA = await pool.connect();
+        try {
+            await conexionA.query('BEGIN');
+            await conexionA.query(
+                `SELECT user_id FROM board_members WHERE board_id = $1 AND role = 'owner' FOR UPDATE`,
+                [boardId],
+            );
+            await conexionA.query(
+                `UPDATE board_members SET role = 'editor' WHERE board_id = $1 AND user_id = $2`,
+                [boardId, beto.user.id],
+            );
+
+            // .then() hace que supertest envie la request ahora, sin esperar la respuesta.
+            const pedidoDeBeto = cambiarRol(beto.token, boardId, ana.user.id, { role: 'editor' }).then((r) => r);
+
+            // Tiempo para que el pedido llegue al bloqueo (con el bloqueo sigue esperando; sin el, ya habria terminado).
+            await new Promise((resolve) => setTimeout(resolve, 400));
+            await conexionA.query('COMMIT');
+
+            const respuesta = await pedidoDeBeto;
+
+            expect(respuesta.status).toBe(409);
+            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+        } finally {
+            await conexionA.query('ROLLBACK').catch(() => undefined);
+            conexionA.release();
+        }
+
+        expect(await rolDe(boardId, ana.user.id)).toBe('owner');
+        expect(await rolDe(boardId, beto.user.id)).toBe('editor');
     });
 });
 

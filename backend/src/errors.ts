@@ -12,3 +12,9 @@ export class UserNotFoundError extends Error {}
 
 // El usuario ya es miembro del tablero (para cambiarle el rol se usa PATCH).
 export class AlreadyMemberError extends Error {}
+
+// El usuario indicado en la URL no es miembro de ese tablero.
+export class MemberNotFoundError extends Error {}
+
+// La operacion dejaria al tablero sin ningun owner.
+export class LastOwnerError extends Error {}
