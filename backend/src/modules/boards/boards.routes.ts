@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../../middlewares/requireAuth.js";
-import { addMemberController, createBoardController, getBoardController, listBoardsController, listMembersController, removeMemberController, updateMemberController } from "./boards.controller.js";
+import { addMemberController, createBoardController, deleteBoardController, getBoardController, listBoardsController, listMembersController, removeMemberController, updateBoardController, updateMemberController } from "./boards.controller.js";
 
 const router = Router();
 
@@ -11,5 +11,7 @@ router.get('/:id/members', requireAuth, listMembersController);
 router.post('/:id/members', requireAuth, addMemberController);
 router.patch('/:id/members/:userId', requireAuth, updateMemberController);
 router.delete('/:id/members/:userId', requireAuth, removeMemberController);
+router.patch('/:id', requireAuth, updateBoardController);
+router.delete('/:id', requireAuth, deleteBoardController);
 
 export default router;

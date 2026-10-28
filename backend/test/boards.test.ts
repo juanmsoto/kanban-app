@@ -3,7 +3,7 @@ import request from 'supertest';
 import { and, eq } from 'drizzle-orm';
 import app from '../src/app.js';
 import { db, pool } from '../src/db/client.js';
-import { boards, boardMembers } from '../src/db/schema.js';
+import { boards, boardMembers, columns, cards, users } from '../src/db/schema.js';
 import { crearUsuarioYToken } from './helpers.js';
 import { assertBoardRole } from '../src/modules/boards/boards.service.js';
 import { BoardNotFoundError, ForbiddenError } from '../src/errors.js';
@@ -870,6 +870,270 @@ describe('DELETE /boards/:id/members/:userId', () => {
 
         expect(await esMiembro(boardId, ana.user.id)).toBe(true);
         expect(await esMiembro(boardId, beto.user.id)).toBe(false);
+    });
+});
+
+describe('PATCH /boards/:id', () => {
+    async function crearTableroConDescripcion(token: string) {
+        const boardId = await crearTablero(token, 'Original');
+        await db.update(boards).set({ description: 'Descripcion original' }).where(eq(boards.id, boardId));
+        return boardId;
+    }
+
+    async function leerTablero(boardId: number) {
+        const [fila] = await db.select().from(boards).where(eq(boards.id, boardId));
+        return fila;
+    }
+
+    function editar(token: string, boardId: number | string, body: object) {
+        return request(app)
+            .patch(`/boards/${boardId}`)
+            .set('Authorization', `Bearer ${token}`)
+            .send(body);
+    }
+
+    it('el owner cambia el nombre: 200 con el objeto plano, la descripcion queda igual y updatedAt avanza', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTableroConDescripcion(token);
+        const antes = await leerTablero(boardId);
+
+        const response = await editar(token, boardId, { name: 'Nuevo nombre' });
+
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({
+            id: boardId,
+            name: 'Nuevo nombre',
+            description: 'Descripcion original',
+            role: 'owner',
+        });
+        expect(response.body).not.toHaveProperty('board');
+
+        const despues = await leerTablero(boardId);
+        expect(despues?.name).toBe('Nuevo nombre');
+        expect(despues?.description).toBe('Descripcion original');
+        expect(despues!.updatedAt.getTime()).toBeGreaterThan(antes!.updatedAt.getTime());
+    });
+
+    it('un editor tambien puede editar y recibe su rol', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const editor = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: editor.user.id, role: 'editor' });
+
+        const response = await editar(editor.token, boardId, { name: 'Editado por Beto' });
+
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({ name: 'Editado por Beto', role: 'editor' });
+    });
+
+    it('cambia la descripcion y deja el nombre igual', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTableroConDescripcion(token);
+
+        const response = await editar(token, boardId, { description: 'Otra descripcion' });
+
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({ name: 'Original', description: 'Otra descripcion' });
+    });
+
+    it('description: null la borra (queda NULL en la base)', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTableroConDescripcion(token);
+
+        const response = await editar(token, boardId, { description: null });
+
+        expect(response.status).toBe(200);
+        expect(response.body.description).toBeNull();
+        expect((await leerTablero(boardId))?.description).toBeNull();
+        expect((await leerTablero(boardId))?.name).toBe('Original');
+    });
+
+    it('solo modifica el tablero indicado, no los demas', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const tableroDeAna = await crearTablero(ana.token, 'De Ana');
+        const tableroDeBeto = await crearTablero(beto.token, 'De Beto');
+
+        await editar(ana.token, tableroDeAna, { name: 'Editado' });
+
+        expect((await leerTablero(tableroDeAna))?.name).toBe('Editado');
+        expect((await leerTablero(tableroDeBeto))?.name).toBe('De Beto');
+    });
+
+    it('recorta los espacios del nombre', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+
+        const response = await editar(token, boardId, { name: '   Con espacios   ' });
+
+        expect(response.status).toBe(200);
+        expect(response.body.name).toBe('Con espacios');
+    });
+
+    it('ignora campos que no se pueden editar (id, createdAt)', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const antes = await leerTablero(boardId);
+
+        const response = await editar(token, boardId, { name: 'Ok', id: 999999, createdAt: '2000-01-01T00:00:00.000Z' });
+
+        expect(response.status).toBe(200);
+        expect(response.body.id).toBe(boardId);
+        const despues = await leerTablero(boardId);
+        expect(despues?.id).toBe(boardId);
+        expect(despues?.createdAt.getTime()).toBe(antes?.createdAt.getTime());
+    });
+
+    it('responde 403 a un viewer y no cambia nada', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const lector = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: lector.user.id, role: 'viewer' });
+
+        const response = await editar(lector.token, boardId, { name: 'Hackeado' });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: 'Prohibido' });
+        expect((await leerTablero(boardId))?.name).toBe('Mi tablero');
+    });
+
+    it('responde 404 a quien no es miembro, igual que a un tablero inexistente', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const ajeno = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const deAjeno = await editar(ajeno.token, boardId, { name: 'Hackeado' });
+        const inexistente = await editar(ajeno.token, 999999, { name: 'Hackeado' });
+
+        expect(deAjeno.status).toBe(404);
+        expect(deAjeno.body).toEqual(inexistente.body);
+        expect((await leerTablero(boardId))?.name).toBe('Mi tablero');
+    });
+
+    it.each([
+        ['un body vacio', {}],
+        ['solo campos desconocidos', { id: 5 }],
+        ['un nombre vacio', { name: '' }],
+        ['un nombre de solo espacios', { name: '   ' }],
+        ['un nombre de mas de 100 caracteres', { name: 'a'.repeat(101) }],
+        ['una descripcion de mas de 500 caracteres', { description: 'a'.repeat(501) }],
+        ['name: null (el nombre es obligatorio)', { name: null }],
+    ])('responde 400 con %s y no cambia nada', async (_caso, body) => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTableroConDescripcion(token);
+
+        const response = await editar(token, boardId, body);
+
+        expect(response.status).toBe(400);
+        const despues = await leerTablero(boardId);
+        expect(despues?.name).toBe('Original');
+        expect(despues?.description).toBe('Descripcion original');
+    });
+
+    it.each(['abc', '0', '99999999999'])('responde 404 (no 500) si el id es %s', async (idInvalido) => {
+        const { token } = await crearUsuarioYToken();
+
+        const response = await editar(token, idInvalido, { name: 'X' });
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: 'No encontrado' });
+    });
+
+    it('responde 401 sin token', async () => {
+        const response = await request(app).patch('/boards/1').send({ name: 'X' });
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+});
+
+describe('DELETE /boards/:id', () => {
+    function borrar(token: string, boardId: number | string) {
+        return request(app)
+            .delete(`/boards/${boardId}`)
+            .set('Authorization', `Bearer ${token}`);
+    }
+
+    it('el owner borra el tablero: 204 sin cuerpo y desaparecen sus membresias, columnas y tarjetas', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const miembro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: miembro.user.id, role: 'editor' });
+        const [columna] = await db.insert(columns).values({ boardId, title: 'Por hacer', position: 1000 }).returning();
+        await db.insert(cards).values({ columnId: columna!.id, title: 'Una tarjeta', position: 1000 });
+
+        const response = await borrar(dueño.token, boardId);
+
+        expect(response.status).toBe(204);
+        expect(response.text).toBe('');
+        expect(await db.select().from(boards)).toHaveLength(0);
+        expect(await db.select().from(boardMembers)).toHaveLength(0);
+        expect(await db.select().from(columns)).toHaveLength(0);
+        expect(await db.select().from(cards)).toHaveLength(0);
+
+        // Los usuarios no se borran, solo su membresia.
+        expect(await db.select().from(users)).toHaveLength(2);
+
+        const detalle = await request(app).get(`/boards/${boardId}`).set('Authorization', `Bearer ${miembro.token}`);
+        expect(detalle.status).toBe(404);
+    });
+
+    it('no toca los demas tableros', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const tableroDeAna = await crearTablero(ana.token, 'De Ana');
+        const tableroDeBeto = await crearTablero(beto.token, 'De Beto');
+
+        await borrar(ana.token, tableroDeAna);
+
+        const restantes = await db.select().from(boards);
+        expect(restantes).toHaveLength(1);
+        expect(restantes[0]?.id).toBe(tableroDeBeto);
+    });
+
+    it.each(['editor', 'viewer'] as const)('responde 403 a un %s y el tablero sigue existiendo', async (rol) => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const miembro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: miembro.user.id, role: rol });
+
+        const response = await borrar(miembro.token, boardId);
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: 'Prohibido' });
+        expect(await db.select().from(boards)).toHaveLength(1);
+    });
+
+    it('responde 404 a quien no es miembro, igual que a un tablero inexistente, y el tablero sigue existiendo', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const ajeno = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        const deAjeno = await borrar(ajeno.token, boardId);
+        const inexistente = await borrar(ajeno.token, 999999);
+
+        expect(deAjeno.status).toBe(404);
+        expect(deAjeno.body).toEqual(inexistente.body);
+        expect(await db.select().from(boards)).toHaveLength(1);
+    });
+
+    it.each(['abc', '0', '99999999999'])('responde 404 (no 500) si el id es %s', async (idInvalido) => {
+        const { token } = await crearUsuarioYToken();
+
+        const response = await borrar(token, idInvalido);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: 'No encontrado' });
+    });
+
+    it('responde 401 sin token y no borra nada', async () => {
+        const dueño = await crearUsuarioYToken();
+        await crearTablero(dueño.token);
+
+        const response = await request(app).delete('/boards/1');
+
+        expect(response.status).toBe(401);
+        expect(await db.select().from(boards)).toHaveLength(1);
     });
 });
 

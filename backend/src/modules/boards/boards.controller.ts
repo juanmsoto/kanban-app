@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { addMemberSchema, boardIdParamSchema, createBoardSchema, memberParamSchema, updateMemberSchema } from './boards.schemas.js';
-import { addMember, createBoard, getBoard, listBoards, listMembers, removeMember, updateMemberRole } from './boards.service.js';
+import { addMemberSchema, boardIdParamSchema, createBoardSchema, memberParamSchema, updateBoardSchema, updateMemberSchema } from './boards.schemas.js';
+import { addMember, createBoard, deleteBoard, getBoard, listBoards, listMembers, removeMember, updateBoard, updateMemberRole } from './boards.service.js';
 
 
 export async function createBoardController(req: Request, res: Response) { 
@@ -145,6 +145,52 @@ export async function removeMemberController(req: Request, res: Response) {
 
     const { id, userId } = parsedParams.data;
     await removeMember(req.user.id, id, userId);
+
+    res.status(204).send();
+}
+
+export async function updateBoardController(req: Request, res: Response) {
+    if(!req.user) {
+        res.status(401).json({ error: 'No autenticado' });
+        return;
+    }
+
+    const parsedParams = boardIdParamSchema.safeParse(req.params);
+
+    if(!parsedParams.success) {
+        res.status(404).json({ error: 'No encontrado' });
+        return;
+    }
+
+    const parsedBody = updateBoardSchema.safeParse(req.body);
+
+    if(!parsedBody.success) {
+        res.status(400).json({
+            error: 'Datos invalidos',
+            fields: z.flattenError(parsedBody.error).fieldErrors,
+        });
+        return;
+    }
+
+    const board = await updateBoard(req.user.id, parsedParams.data.id, parsedBody.data);
+
+    res.status(200).json(board);
+}
+
+export async function deleteBoardController(req: Request, res: Response) {
+    if(!req.user) {
+        res.status(401).json({ error: 'No autenticado' });
+        return;
+    }
+
+    const parsedParams = boardIdParamSchema.safeParse(req.params);
+
+    if(!parsedParams.success) {
+        res.status(404).json({ error: 'No encontrado' });
+        return;
+    }
+
+    await deleteBoard(req.user.id, parsedParams.data.id);
 
     res.status(204).send();
 }

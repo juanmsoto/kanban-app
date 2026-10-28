@@ -25,6 +25,17 @@ export const updateMemberSchema = z.object({
     role: z.enum(boardRole.enumValues),
 });
 
+export const updateBoardSchema = z
+    .object({
+        name: z.string().trim().min(1).max(100).optional(),
+        description: z.string().trim().max(500).nullable().optional(),
+    })
+    .refine((data) => data.name !== undefined || data.description !== undefined, {
+        message: 'Hay que enviar al menos un campo',
+    });
+
+export type UpdateBoardInput = z.infer<typeof updateBoardSchema>;
+
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
 
 export type CreateBoardInput = z.infer<typeof createBoardSchema>;

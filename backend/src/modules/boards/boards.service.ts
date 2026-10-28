@@ -1,6 +1,6 @@
 import { db } from "../../db/client.js";
 import { boardMembers, boards, users } from "../../db/schema.js";
-import type { AddMemberInput, CreateBoardInput, UpdateMemberInput } from "./boards.schemas.js";
+import type { AddMemberInput, CreateBoardInput, UpdateBoardInput, UpdateMemberInput } from "./boards.schemas.js";
 import { boardRole } from '../../db/schema.js';
 import { and, desc, asc, eq, DrizzleQueryError } from "drizzle-orm";
 import { AlreadyMemberError, BoardNotFoundError, ForbiddenError, LastOwnerError, MemberNotFoundError, UserNotFoundError } from "../../errors.js";
@@ -208,4 +208,26 @@ export async function removeMember(userId: number, boardId: number, targetUserId
             .delete(boardMembers)
             .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, targetUserId)));
     });
+}
+
+export async function updateBoard(userId: number, boardId: number, { name, description }: UpdateBoardInput) {
+    const role = await assertBoardRole(userId, boardId, 'editor');
+
+    const [board] = await db
+        .update(boards)
+        .set({ name, description })
+        .where(eq(boards.id, boardId))
+        .returning();
+
+    if(!board) {
+        throw new BoardNotFoundError();
+    }
+
+    return { ...board, role };
+}
+
+export async function deleteBoard(userId: number, boardId: number) {
+    await assertBoardRole(userId, boardId, 'owner');
+
+    await db.delete(boards).where(eq(boards.id, boardId));
 }
