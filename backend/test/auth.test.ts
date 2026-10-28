@@ -5,7 +5,7 @@ import app from "../src/app.js";
 import { db } from "../src/db/client.js";
 import { users } from "../src/db/schema.js";
 import { jwtSecret } from "../src/config.js";
-import { crearUsuarioYToken } from "./helpers.js";
+import { crearUsuarioYToken, registrarYLoguear } from "./helpers.js";
 
 const datosValidos = {
     name: 'Ana',
@@ -138,8 +138,8 @@ describe('POST /auth/login', () => {
 });
 
 describe('GET /auth/me', () => {
-    it('devuelve el usuario con un token válido', async () => {
-        const { token, user } = await crearUsuarioYToken();
+    it('devuelve el usuario con un token válido (token obtenido con el login real)', async () => {
+        const { token, user } = await registrarYLoguear();
 
         const response = await request(app)
             .get('/auth/me')
