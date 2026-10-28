@@ -129,20 +129,6 @@ describe('GET /boards/:id', () => {
         expect(deAjeno.body).not.toHaveProperty('name');
     });
 
-    it.each(['abc', '0', '-1', '1.5', '99999999999'])(
-        'responde 404 (no 500) si el id es %s',
-        async (idInvalido) => {
-            const { token } = await crearUsuarioYToken();
-
-            const response = await request(app)
-                .get(`/boards/${idInvalido}`)
-                .set('Authorization', `Bearer ${token}`);
-
-            expect(response.status).toBe(404);
-            expect(response.body).toEqual({ error: 'No encontrado' });
-        },
-    );
-
     it('responde 401 sin token', async () => {
         const response = await request(app).get('/boards/1');
 
@@ -287,20 +273,6 @@ describe('GET /boards/:id/members', () => {
         expect(deAjeno.body).toEqual(inexistente.body);
         expect(deAjeno.body).not.toHaveProperty('email');
     });
-
-    it.each(['abc', '0', '-1', '1.5', '99999999999'])(
-        'responde 404 (no 500) si el id es %s',
-        async (idInvalido) => {
-            const { token } = await crearUsuarioYToken();
-
-            const response = await request(app)
-                .get(`/boards/${idInvalido}/members`)
-                .set('Authorization', `Bearer ${token}`);
-
-            expect(response.status).toBe(404);
-            expect(response.body).toEqual({ error: 'No encontrado' });
-        },
-    );
 
     it('responde 401 sin token', async () => {
         const response = await request(app).get('/boards/1/members');
@@ -465,21 +437,6 @@ describe('POST /boards/:id/members', () => {
         expect(response.status).toBe(400);
     });
 
-    it.each(['abc', '0', '-1', '1.5', '99999999999'])(
-        'responde 404 (no 500) si el id es %s',
-        async (idInvalido) => {
-            const { token } = await crearUsuarioYToken();
-
-            const response = await request(app)
-                .post(`/boards/${idInvalido}/members`)
-                .set('Authorization', `Bearer ${token}`)
-                .send({ email: 'ana@mail.com', role: 'viewer' });
-
-            expect(response.status).toBe(404);
-            expect(response.body).toEqual({ error: 'No encontrado' });
-        },
-    );
-
     it('responde 401 sin token', async () => {
         const response = await request(app)
             .post('/boards/1/members')
@@ -627,23 +584,6 @@ describe('PATCH /boards/:id/members/:userId', () => {
         expect(response.status).toBe(400);
         expect(response.body.fields).toHaveProperty('role');
         expect(await rolDe(boardId, miembro.user.id)).toBe('editor');
-    });
-
-    it.each([
-        ['abc', '1'],
-        ['1', 'abc'],
-        ['0', '1'],
-        ['1', '0'],
-        ['1', '-1'],
-        ['1', '1.5'],
-        ['1', '99999999999'],
-    ])('responde 404 (no 500) con ids invalidos %s / %s', async (boardId, userId) => {
-        const { token } = await crearUsuarioYToken();
-
-        const response = await cambiarRol(token, boardId, userId);
-
-        expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: 'No encontrado' });
     });
 
     it('responde 401 sin token', async () => {
@@ -811,20 +751,6 @@ describe('DELETE /boards/:id/members/:userId', () => {
 
         expect(response.status).toBe(404);
         expect(response.body).toEqual({ error: 'Miembro no encontrado' });
-    });
-
-    it.each([
-        ['abc', '1'],
-        ['1', 'abc'],
-        ['1', '0'],
-        ['1', '99999999999'],
-    ])('responde 404 (no 500) con ids invalidos %s / %s', async (boardId, userId) => {
-        const { token } = await crearUsuarioYToken();
-
-        const response = await quitar(token, boardId, userId);
-
-        expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: 'No encontrado' });
     });
 
     it('responde 401 sin token', async () => {
@@ -1030,15 +956,6 @@ describe('PATCH /boards/:id', () => {
         expect(despues?.description).toBe('Descripcion original');
     });
 
-    it.each(['abc', '0', '99999999999'])('responde 404 (no 500) si el id es %s', async (idInvalido) => {
-        const { token } = await crearUsuarioYToken();
-
-        const response = await editar(token, idInvalido, { name: 'X' });
-
-        expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: 'No encontrado' });
-    });
-
     it('responde 401 sin token', async () => {
         const response = await request(app).patch('/boards/1').send({ name: 'X' });
 
@@ -1117,15 +1034,6 @@ describe('DELETE /boards/:id', () => {
         expect(await db.select().from(boards)).toHaveLength(1);
     });
 
-    it.each(['abc', '0', '99999999999'])('responde 404 (no 500) si el id es %s', async (idInvalido) => {
-        const { token } = await crearUsuarioYToken();
-
-        const response = await borrar(token, idInvalido);
-
-        expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: 'No encontrado' });
-    });
-
     it('responde 401 sin token y no borra nada', async () => {
         const dueño = await crearUsuarioYToken();
         await crearTablero(dueño.token);
@@ -1134,6 +1042,45 @@ describe('DELETE /boards/:id', () => {
 
         expect(response.status).toBe(401);
         expect(await db.select().from(boards)).toHaveLength(1);
+    });
+});
+
+// Un id invalido en la URL (no numerico, <= 0, decimal o fuera del rango de int4) tiene que dar 404 en JSON y
+// nunca llegar a la base (que respondería 500). Se prueba una sola vez para todas las rutas con parametros.
+describe('ids invalidos en la URL', () => {
+    const INVALIDOS = ['abc', '0', '-1', '1.5', '99999999999'];
+
+    const RUTAS = [
+        { metodo: 'get', ruta: '/boards/:id' },
+        { metodo: 'patch', ruta: '/boards/:id', body: { name: 'X' } },
+        { metodo: 'delete', ruta: '/boards/:id' },
+        { metodo: 'get', ruta: '/boards/:id/members' },
+        { metodo: 'post', ruta: '/boards/:id/members', body: { email: 'ana@mail.com', role: 'viewer' } },
+        { metodo: 'patch', ruta: '/boards/:id/members/:userId', body: { role: 'viewer' } },
+        { metodo: 'delete', ruta: '/boards/:id/members/:userId' },
+    ] as const;
+
+    it.each(RUTAS)('$metodo $ruta responde 404 (no 500) con cada id invalido', async ({ metodo, ruta, ...resto }) => {
+        const { token, user } = await crearUsuarioYToken();
+        // Tablero real del que el usuario es owner: asi el chequeo de permiso pasa y un userId invalido que se
+        // colara por el schema llegaria hasta la consulta (con un tablero inexistente se frenaria antes, en un 404 que
+        // se parece al de validacion y taparia el error).
+        const boardId = await crearTablero(token);
+        const validos: Record<string, string> = { ':id': String(boardId), ':userId': String(user.id) };
+        const parametros = ruta.match(/:\w+/g) ?? [];
+
+        for (const parametro of parametros) {
+            for (const invalido of INVALIDOS) {
+                // Todos los parametros llevan un valor valido salvo el que se esta probando.
+                const url = ruta.replace(/:\w+/g, (p) => (p === parametro ? invalido : validos[p]!));
+
+                const pedido = request(app)[metodo](url).set('Authorization', `Bearer ${token}`);
+                const response = await ('body' in resto ? pedido.send(resto.body) : pedido);
+
+                expect(response.status, `${metodo.toUpperCase()} ${url}`).toBe(404);
+                expect(response.body, `${metodo.toUpperCase()} ${url}`).toEqual({ error: 'No encontrado' });
+            }
+        }
     });
 });
 
