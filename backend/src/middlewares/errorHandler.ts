@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { DatabaseError } from 'pg';
 import { DrizzleQueryError } from 'drizzle-orm';
+import { AlreadyMemberError, BoardNotFoundError, ForbiddenError, LastOwnerError, MemberNotFoundError, UserNotFoundError } from '../errors.js';
 
 // Loguea el error sin volcar los parametros de la consulta (traen el password_hash).
 function logError(err: unknown) {
@@ -31,6 +32,36 @@ export function notFound(_req: Request, res: Response) {
 
 // Manejador de errores: Express lo reconoce por tener 4 parametros.
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+    if(err instanceof BoardNotFoundError) {
+        res.status(404).json({ error: 'No encontrado' });
+        return;
+    }
+
+    if(err instanceof ForbiddenError) {
+        res.status(403).json({ error: 'Prohibido' });
+        return;
+    }
+    
+    if(err instanceof UserNotFoundError) {
+        res.status(404).json({ error: 'Usuario no encontrado' });
+        return;
+    }
+
+    if(err instanceof AlreadyMemberError) {
+        res.status(409).json({ error: 'El usuario ya es miembro del tablero' });
+        return;
+    }
+
+    if(err instanceof MemberNotFoundError) {
+        res.status(404).json({ error: 'Miembro no encontrado' });
+        return;
+    }
+
+    if(err instanceof LastOwnerError) {
+        res.status(409).json({ error: 'El tablero debe tener al menos un owner' });
+        return;
+    }
+
     const status =
         typeof err === 'object' &&
         err !== null &&
