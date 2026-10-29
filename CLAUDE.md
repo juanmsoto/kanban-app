@@ -64,7 +64,7 @@ Estricto: un paso chico por vez, con pausa de confirmación al final de cada uno
 Español rioplatense con "vos", informal y directo, sin emojis, sin elogios excesivos: cuando algo está bien se dice en una frase y se sigue.
 
 ## Errores frecuentes de otras sesiones
-(Vacío al principio. Se llena solo con desvíos reales.)
+- **Cerrar un bloque con un commit "de docs" después del merge.** Pasó más de una vez (por ejemplo, actualizar `PROGRESO.md` con el cierre del Bloque 3 ya en la rama del Bloque 4). Juan no quiere commits fuera de la rama del bloque al que pertenecen. **Regla:** antes de pasarle el commit final y los comandos de merge de un bloque, escribir TODO lo que haya que escribir: `PROGRESO.md` ya con el bloque marcado como cerrado y el próximo paso del bloque siguiente, y cualquier otro archivo de docs. Lo único que no se puede saber de antemano es el hash del squash: referirse al bloque por su tag (`hito-<nombre>`), nunca por el hash. Después del merge no debe quedar nada por commitear; si aparece algo, pertenece a la rama del bloque nuevo y se avisa como tal.
 
 ## Git
 **Claude no ejecuta comandos que cambien el repositorio** (`add`, `commit`, `push`, `merge`, `tag`, `checkout`, `stash`, `init`, `branch`). Se los pasa a Juan listos para copiar y él los corre. Claude solo corre comandos de lectura (`git status`, `git log`, `git diff`).
