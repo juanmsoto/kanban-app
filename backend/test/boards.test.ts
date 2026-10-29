@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import app from '../src/app.js';
 import { db, pool } from '../src/db/client.js';
 import { boards, boardMembers, columns, cards, users } from '../src/db/schema.js';
-import { crearUsuarioYToken } from './helpers.js';
+import { crearUsuarioYToken, crearTablero } from './helpers.js';
 import { assertBoardRole } from '../src/modules/boards/boards.service.js';
 import { BoardNotFoundError, ForbiddenError } from '../src/errors.js';
 
@@ -74,14 +74,6 @@ describe('POST /boards', () => {
 });
 
 // Crea un tablero con `token` como dueño y devuelve su id.
-async function crearTablero(token: string, name = 'Mi tablero') {
-    const response = await request(app)
-        .post('/boards')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ name });
-    return response.body.id as number;
-}
-
 describe('GET /boards/:id', () => {
     it('devuelve el tablero y el rol al owner', async () => {
         const { token } = await crearUsuarioYToken();

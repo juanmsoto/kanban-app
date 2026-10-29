@@ -31,6 +31,15 @@ export async function crearUsuarioYToken(email = 'ana@mail.com', name = 'Ana'): 
     return { token, user };
 }
 
+// Crea un tablero por la API (el usuario del token queda como owner) y devuelve su id.
+export async function crearTablero(token: string, name = 'Mi tablero') {
+    const response = await request(app)
+        .post('/boards')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name });
+    return response.body.id as number;
+}
+
 // Flujo real por la API (registro + login con bcrypt de produccion). Usar solo cuando el test
 // quiere comprobar de punta a punta que el token que entrega el login sirve para autenticarse.
 export async function registrarYLoguear(email = 'ana@mail.com', name = 'Ana') {

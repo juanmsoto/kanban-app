@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { db } from './db/client.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import boardsRoutes from './modules/boards/boards.routes.js';
+import columnsRoutes from './modules/columns/columns.routes.js';
 import { notFound, errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
@@ -21,6 +22,9 @@ app.use('/auth', authRoutes);
 
 // Rutas boards
 app.use('/boards', boardsRoutes)
+
+// Rutas columns
+app.use(columnsRoutes);
 
 // Manejador de rutas no encontradas y errores: primero el 404, después el manejador de errores.
 app.use(notFound);
