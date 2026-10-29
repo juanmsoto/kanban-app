@@ -9,7 +9,7 @@ const SEPARACION = 1000;
 
 // Resuelve columna -> tablero y comprueba el rol del usuario en ESE tablero (la columna no tiene roles propios).
 // Columna inexistente y columna de un tablero ajeno responden igual (404).
-async function assertBoardRoleForColumn(userId: number, columnId: number, minimo: 'viewer' | 'editor' | 'owner') {
+export async function assertBoardRoleForColumn(userId: number, columnId: number, minimo: 'viewer' | 'editor' | 'owner') {
     const [column] = await db
         .select({ boardId: columns.boardId })
         .from(columns)

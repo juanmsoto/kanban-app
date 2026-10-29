@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import app from '../src/app.js';
 import { db } from '../src/db/client.js';
-import { users } from '../src/db/schema.js';
+import { boardMembers, users } from '../src/db/schema.js';
 import { jwtSecret } from '../src/config.js';
 
 const PASSWORD = 'clave-segura-1';
@@ -38,6 +38,35 @@ export async function crearTablero(token: string, name = 'Mi tablero') {
         .set('Authorization', `Bearer ${token}`)
         .send({ name });
     return response.body.id as number;
+}
+
+// Agrega a un usuario a un tablero con el rol dado (directo en la base).
+export async function agregarMiembro(boardId: number, userId: number, role: 'owner' | 'editor' | 'viewer') {
+    await db.insert(boardMembers).values({ boardId, userId, role });
+}
+
+// Crea una columna por la API y devuelve su cuerpo.
+export async function crearColumna(token: string, boardId: number, title = 'Por hacer') {
+    const response = await request(app)
+        .post(`/boards/${boardId}/columns`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title });
+    return response.body as { id: number; boardId: number; title: string; position: number };
+}
+
+// Crea una tarjeta por la API y devuelve su cuerpo.
+export async function crearTarjeta(token: string, columnId: number, title = 'Una tarjeta', description?: string) {
+    const response = await request(app)
+        .post(`/columns/${columnId}/cards`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(description === undefined ? { title } : { title, description });
+    return response.body as {
+        id: number;
+        columnId: number;
+        title: string;
+        description: string | null;
+        position: number;
+    };
 }
 
 // Flujo real por la API (registro + login con bcrypt de produccion). Usar solo cuando el test

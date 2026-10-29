@@ -3,24 +3,8 @@ import request from 'supertest';
 import { eq } from 'drizzle-orm';
 import app from '../src/app.js';
 import { db } from '../src/db/client.js';
-import { boardMembers, cards, columns } from '../src/db/schema.js';
-import { crearTablero, crearUsuarioYToken } from './helpers.js';
-
-type Rol = 'owner' | 'editor' | 'viewer';
-
-// Agrega a un usuario a un tablero con el rol dado (directo en la base).
-async function agregarMiembro(boardId: number, userId: number, role: Rol) {
-    await db.insert(boardMembers).values({ boardId, userId, role });
-}
-
-// Crea una columna por la API y devuelve su cuerpo.
-async function crearColumna(token: string, boardId: number, title = 'Por hacer') {
-    const response = await request(app)
-        .post(`/boards/${boardId}/columns`)
-        .set('Authorization', `Bearer ${token}`)
-        .send({ title });
-    return response.body as { id: number; boardId: number; title: string; position: number };
-}
+import { cards, columns } from '../src/db/schema.js';
+import { agregarMiembro, crearColumna, crearTablero, crearUsuarioYToken } from './helpers.js';
 
 async function leerColumna(columnId: number) {
     const [fila] = await db.select().from(columns).where(eq(columns.id, columnId));

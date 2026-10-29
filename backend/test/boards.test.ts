@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import app from '../src/app.js';
 import { db, pool } from '../src/db/client.js';
 import { boards, boardMembers, columns, cards, users } from '../src/db/schema.js';
 import { crearUsuarioYToken, crearTablero } from './helpers.js';
 import { assertBoardRole } from '../src/modules/boards/boards.service.js';
 import { BoardNotFoundError, ForbiddenError } from '../src/errors.js';
+
+const FECHA_VIEJA = '2000-01-01T00:00:00Z';
 
 describe('POST /boards', () => {
     it('crea el tablero y deja al usuario como owner', async () => {
@@ -813,7 +815,9 @@ describe('PATCH /boards/:id', () => {
     it('el owner cambia el nombre: 200 con el objeto plano, la descripcion queda igual y updatedAt avanza', async () => {
         const { token } = await crearUsuarioYToken();
         const boardId = await crearTableroConDescripcion(token);
-        const antes = await leerTablero(boardId);
+        // Se retrocede updated_at para no depender de que el reloj de Postgres (defaultNow) y el de Node ($onUpdate)
+        // coincidan al milisegundo: comparar los dos relojes haria fallar el test por 1 ms.
+        await db.execute(sql`UPDATE boards SET updated_at = ${FECHA_VIEJA} WHERE id = ${boardId}`);
 
         const response = await editar(token, boardId, { name: 'Nuevo nombre' });
 
@@ -829,7 +833,7 @@ describe('PATCH /boards/:id', () => {
         const despues = await leerTablero(boardId);
         expect(despues?.name).toBe('Nuevo nombre');
         expect(despues?.description).toBe('Descripcion original');
-        expect(despues!.updatedAt.getTime()).toBeGreaterThan(antes!.updatedAt.getTime());
+        expect(despues!.updatedAt.getTime()).toBeGreaterThan(new Date(FECHA_VIEJA).getTime());
     });
 
     it('un editor tambien puede editar y recibe su rol', async () => {
