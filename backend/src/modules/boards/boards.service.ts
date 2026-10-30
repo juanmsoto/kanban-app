@@ -1,8 +1,7 @@
 import { db } from "../../db/client.js";
-import { boardMembers, boards, users } from "../../db/schema.js";
+import { boardMembers, boards, cards, columns, users, boardRole } from "../../db/schema.js";
 import type { AddMemberInput, CreateBoardInput, UpdateBoardInput, UpdateMemberInput } from "./boards.schemas.js";
-import { boardRole } from '../../db/schema.js';
-import { and, desc, asc, eq, DrizzleQueryError } from "drizzle-orm";
+import { and, desc, asc, eq, getColumns, DrizzleQueryError } from "drizzle-orm";
 import { AlreadyMemberError, BoardNotFoundError, ForbiddenError, LastOwnerError, MemberNotFoundError, UserNotFoundError } from "../../errors.js";
 import { DatabaseError } from "pg";
 
@@ -68,12 +67,44 @@ export async function getBoard(userId: number, boardId: number) {
         .select()
         .from(boards)
         .where(eq(boards.id, boardId));
-    
+
     if(!board) {
         throw new BoardNotFoundError();
     }
-    
-    return { ...board, role };
+
+    const boardColumns = await db
+        .select()
+        .from(columns)
+        .where(eq(columns.boardId, boardId))
+        .orderBy(asc(columns.position), asc(columns.id));
+
+    const boardCards = await db
+        .select(getColumns(cards))
+        .from(cards)
+        .innerJoin(columns, eq(cards.columnId, columns.id))
+        .where(eq(columns.boardId, boardId))
+        .orderBy(asc(cards.position), asc(cards.id));
+
+    const cardsByColumn = new Map<number, typeof boardCards>();
+
+    for(const card of boardCards) {
+        const list = cardsByColumn.get(card.columnId);
+
+        if(list) {
+            list.push(card);
+        } else {
+            cardsByColumn.set(card.columnId, [card]);
+        }
+    }
+
+    return {
+        ...board,
+        role,
+        columns: boardColumns.map((column) => ({
+            ...column,
+            cards: cardsByColumn.get(column.id) ?? [],
+        })),
+    };
 }
 
 export async function listBoards(userId: number) {
