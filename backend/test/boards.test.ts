@@ -4,7 +4,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import app from '../src/app.js';
 import { db, pool } from '../src/db/client.js';
 import { boards, boardMembers, columns, cards, users } from '../src/db/schema.js';
-import { crearUsuarioYToken, crearTablero } from './helpers.js';
+import { crearUsuarioYToken, crearTablero, crearColumna, crearTarjeta } from './helpers.js';
 import { assertBoardRole } from '../src/modules/boards/boards.service.js';
 import { BoardNotFoundError, ForbiddenError } from '../src/errors.js';
 
@@ -75,7 +75,6 @@ describe('POST /boards', () => {
     });
 });
 
-// Crea un tablero con `token` como dueño y devuelve su id.
 describe('GET /boards/:id', () => {
     it('devuelve el tablero y el rol al owner', async () => {
         const { token } = await crearUsuarioYToken();
@@ -128,6 +127,129 @@ describe('GET /boards/:id', () => {
 
         expect(response.status).toBe(401);
         expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    it('devuelve columns: [] si el tablero no tiene columnas', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+
+        const response = await request(app)
+            .get(`/boards/${boardId}`)
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.columns).toEqual([]);
+    });
+
+    it('anida cada tarjeta en su columna y deja cards: [] en la columna sin tarjetas', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const porHacer = await crearColumna(token, boardId, 'Por hacer');
+        const enCurso = await crearColumna(token, boardId, 'En curso');
+        const hecho = await crearColumna(token, boardId, 'Hecho');
+
+        // Se crean intercaladas para que una agrupacion mal hecha mezcle columnas.
+        const a = await crearTarjeta(token, porHacer.id, 'A');
+        const b = await crearTarjeta(token, enCurso.id, 'B', 'detalle de B');
+        const c = await crearTarjeta(token, porHacer.id, 'C');
+
+        const response = await request(app)
+            .get(`/boards/${boardId}`)
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        const [col1, col2, col3] = response.body.columns;
+        expect(response.body.columns).toHaveLength(3);
+
+        expect(col1).toMatchObject({ id: porHacer.id, boardId, title: 'Por hacer' });
+        expect(col1.cards.map((t: { id: number }) => t.id)).toEqual([a.id, c.id]);
+
+        expect(col2).toMatchObject({ id: enCurso.id, title: 'En curso' });
+        expect(col2.cards).toHaveLength(1);
+        expect(col2.cards[0]).toMatchObject({
+            id: b.id,
+            columnId: enCurso.id,
+            title: 'B',
+            description: 'detalle de B',
+            position: b.position,
+        });
+
+        expect(col3).toMatchObject({ id: hecho.id, title: 'Hecho' });
+        expect(col3.cards).toEqual([]);
+    });
+
+    it('ordena columnas y tarjetas por posicion, no por orden de creacion', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const primera = await crearColumna(token, boardId, 'Primera');
+        const segunda = await crearColumna(token, boardId, 'Segunda');
+        const t1 = await crearTarjeta(token, primera.id, 'T1');
+        const t2 = await crearTarjeta(token, primera.id, 'T2');
+        const t3 = await crearTarjeta(token, primera.id, 'T3');
+
+        // Invierte las posiciones directo en la base: el orden de creacion ya no coincide con el de position.
+        await db.update(columns).set({ position: 3000 }).where(eq(columns.id, primera.id));
+        await db.update(columns).set({ position: 1000 }).where(eq(columns.id, segunda.id));
+        await db.update(cards).set({ position: 3000 }).where(eq(cards.id, t1.id));
+        await db.update(cards).set({ position: 2000 }).where(eq(cards.id, t2.id));
+        await db.update(cards).set({ position: 1000 }).where(eq(cards.id, t3.id));
+
+        const response = await request(app)
+            .get(`/boards/${boardId}`)
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.body.columns.map((c: { id: number }) => c.id)).toEqual([segunda.id, primera.id]);
+        expect(response.body.columns[1].cards.map((t: { id: number }) => t.id)).toEqual([t3.id, t2.id, t1.id]);
+    });
+
+    it('un viewer ve las columnas y las tarjetas', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const lector = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await db.insert(boardMembers).values({ boardId, userId: lector.user.id, role: 'viewer' });
+        const columna = await crearColumna(dueño.token, boardId);
+        const tarjeta = await crearTarjeta(dueño.token, columna.id);
+
+        const response = await request(app)
+            .get(`/boards/${boardId}`)
+            .set('Authorization', `Bearer ${lector.token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.role).toBe('viewer');
+        expect(response.body.columns[0].cards[0].id).toBe(tarjeta.id);
+    });
+
+    it('no mezcla columnas ni tarjetas de otros tableros', async () => {
+        const { token } = await crearUsuarioYToken();
+        const mio = await crearTablero(token, 'Mio');
+        const otro = await crearTablero(token, 'Otro');
+        const columnaMia = await crearColumna(token, mio, 'Mia');
+        const columnaOtra = await crearColumna(token, otro, 'Otra');
+        const tarjetaMia = await crearTarjeta(token, columnaMia.id, 'Mia');
+        await crearTarjeta(token, columnaOtra.id, 'Ajena');
+
+        const response = await request(app)
+            .get(`/boards/${mio}`)
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.body.columns).toHaveLength(1);
+        expect(response.body.columns[0].id).toBe(columnaMia.id);
+        expect(response.body.columns[0].cards.map((t: { id: number }) => t.id)).toEqual([tarjetaMia.id]);
+    });
+
+    it('a quien no es miembro no le filtra columnas ni tarjetas: 404', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const ajeno = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        const columna = await crearColumna(dueño.token, boardId);
+        await crearTarjeta(dueño.token, columna.id);
+
+        const response = await request(app)
+            .get(`/boards/${boardId}`)
+            .set('Authorization', `Bearer ${ajeno.token}`);
+
+        expect(response.status).toBe(404);
+        expect(response.body).not.toHaveProperty('columns');
     });
 });
 
