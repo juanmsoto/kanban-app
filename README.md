@@ -75,9 +75,27 @@ Los tests vacían las tablas de `kanban_app_test` entre un test y otro y se nieg
 | `POST /auth/login` | no | Devuelve `{ token, user }` |
 | `GET /auth/me` | sí | Datos del usuario autenticado |
 | `POST /boards` | sí | Crea un tablero; quien lo crea queda como `owner` |
-| `GET /boards/:id` | sí | Devuelve `{ board, role }` si el usuario es miembro; 404 si no lo es |
+| `GET /boards` | sí | Lista los tableros del usuario, cada uno con su `role` (el más nuevo primero) |
+| `GET /boards/:id` | sí | El tablero con su `role` y sus `columns` en orden, cada una con sus `cards` en orden (`viewer`) |
+| `PATCH /boards/:id` | sí | Cambia `name` y/o `description` (`editor`) |
+| `DELETE /boards/:id` | sí | Borra el tablero con sus columnas y tarjetas (`owner`); 204 |
+| `GET /boards/:id/members` | sí | Lista los miembros con su rol (`viewer`) |
+| `POST /boards/:id/members` | sí | Agrega un miembro por `email` con un `role` (`owner`) |
+| `PATCH /boards/:id/members/:userId` | sí | Cambia el rol de un miembro (`owner`); el tablero siempre conserva al menos un owner |
+| `DELETE /boards/:id/members/:userId` | sí | Quita a un miembro (`owner`), o cualquier miembro puede salirse solo; 204 |
+| `GET /boards/:id/columns` | sí | Lista las columnas en orden (`viewer`) |
+| `POST /boards/:id/columns` | sí | Crea una columna al final (`editor`) |
+| `PATCH /columns/:id` | sí | Cambia el `title` de la columna (`editor`) |
+| `PATCH /columns/:id/move` | sí | Mueve la columna: body `{ "afterId": <id de la columna que queda arriba> \| null }` (`editor`) |
+| `DELETE /columns/:id` | sí | Borra la columna con sus tarjetas (`editor`); 204 |
+| `POST /columns/:id/cards` | sí | Crea una tarjeta al final de la columna (`editor`) |
+| `PATCH /cards/:id` | sí | Cambia `title` y/o `description` (`editor`) |
+| `PATCH /cards/:id/move` | sí | Mueve la tarjeta, incluso a otra columna del mismo tablero: body `{ "columnId": <columna destino>, "afterId": <id de la tarjeta que queda arriba> \| null }` (`editor`) |
+| `DELETE /cards/:id` | sí | Borra la tarjeta (`editor`); 204 |
 
 Roles por tablero: `owner`, `editor`, `viewer`. Quien no es miembro recibe 404 (no se revela que el tablero existe); un miembro sin rol suficiente recibe 403.
+
+El orden de columnas y tarjetas se guarda en un número `position` que calcula siempre el servidor: el cliente nunca lo manda. Para mover, el cliente dice "después de quién" (`afterId`, `null` = al principio) y el servidor elige la posición (el punto medio entre las dos vecinas; si ya no queda hueco, renumera esa lista). Un `afterId` o un `columnId` que no corresponde (no existe, es de otro tablero o es el propio elemento) responde 400 `Movimiento invalido`. Como un movimiento puede renumerar a las demás, el cliente debe confiar en el orden en que le llegan las listas y no guardar posiciones.
 
 ## Organización
 
@@ -86,8 +104,9 @@ backend/
   src/
     db/            cliente de Drizzle y esquema
     middlewares/   requireAuth, manejo de errores
-    modules/       auth/, boards/ (routes, controller, service, schemas)
-    errors.ts      errores de autorización compartidos
+    modules/       auth/, boards/, columns/, cards/ (routes, controller, service, schemas)
+    errors.ts      errores compartidos (autorización y movimiento inválido)
+    position.ts    cálculo de la posición de un elemento entre dos vecinos
     config.ts      variables de entorno validadas
   test/            tests de integración (uno por módulo)
   drizzle/         migraciones generadas

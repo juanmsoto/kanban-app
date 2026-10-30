@@ -18,5 +18,11 @@ export const updateCardSchema = z
         message: 'Hay que enviar al menos un campo',
     });
 
+export const moveCardSchema = z.object({
+    columnId: z.number().int().positive().max(2_147_483_647),
+    afterId: z.number().int().positive().max(2_147_483_647).nullable(),
+});
+
+export type MoveCardInput = z.infer<typeof moveCardSchema>;
 export type CreateCardInput = z.infer<typeof createCardSchema>;
 export type UpdateCardInput = z.infer<typeof updateCardSchema>;
