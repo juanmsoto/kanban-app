@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { boardIdParamSchema } from '../boards/boards.schemas.js';
-import { columnIdParamSchema, createColumnSchema, updateColumnSchema } from './columns.schemas.js';
-import { createColumn, deleteColumn, listColumns, updateColumn } from './columns.service.js';
+import { columnIdParamSchema, createColumnSchema, moveColumnSchema, updateColumnSchema } from './columns.schemas.js';
+import { createColumn, deleteColumn, listColumns, moveColumn, updateColumn } from './columns.service.js';
 
 export async function listColumnsController(req: Request, res: Response) {
     if(!req.user) {
@@ -94,4 +94,32 @@ export async function deleteColumnController(req: Request, res: Response) {
     await deleteColumn(req.user.id, parsedParams.data.id);
 
     res.status(204).send();
+}
+
+export async function moveColumnController(req: Request, res: Response) {
+    if(!req.user) {
+        res.status(401).json({ error: 'No autenticado' });
+        return;
+    }
+
+    const parsedParams = columnIdParamSchema.safeParse(req.params);
+
+    if(!parsedParams.success) {
+        res.status(404).json({ error: 'No encontrado' });
+        return;
+    }
+
+    const parsedBody = moveColumnSchema.safeParse(req.body);
+
+    if(!parsedBody.success) {
+        res.status(400).json({
+            error: 'Datos invalidos',
+            fields: z.flattenError(parsedBody.error).fieldErrors,
+        });
+        return;
+    }
+
+    const column = await moveColumn(req.user.id, parsedParams.data.id, parsedBody.data);
+
+    res.status(200).json(column);
 }

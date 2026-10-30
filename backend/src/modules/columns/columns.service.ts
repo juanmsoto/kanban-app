@@ -1,11 +1,10 @@
 import { asc, eq, max } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { columns } from '../../db/schema.js';
-import { BoardNotFoundError } from '../../errors.js';
+import { BoardNotFoundError, InvalidMoveError } from '../../errors.js';
 import { assertBoardRole } from '../boards/boards.service.js';
-import type { CreateColumnInput, UpdateColumnInput } from './columns.schemas.js';
-
-const SEPARACION = 1000;
+import { SEPARACION, posicionEntre } from '../../position.js';
+import type { CreateColumnInput, MoveColumnInput, UpdateColumnInput } from './columns.schemas.js';
 
 // Resuelve columna -> tablero y comprueba el rol del usuario en ESE tablero (la columna no tiene roles propios).
 // Columna inexistente y columna de un tablero ajeno responden igual (404).
@@ -20,6 +19,7 @@ export async function assertBoardRoleForColumn(userId: number, columnId: number,
     }
 
     await assertBoardRole(userId, column.boardId, minimo);
+    return column.boardId;
 }
 
 export async function listColumns(userId: number, boardId: number) {
@@ -76,4 +76,53 @@ export async function deleteColumn(userId: number, columnId: number) {
     await assertBoardRoleForColumn(userId, columnId, 'editor');
 
     await db.delete(columns).where(eq(columns.id, columnId));
+}
+
+export async function moveColumn(userId: number, columnId: number, { afterId }: MoveColumnInput) {
+    const boardId = await assertBoardRoleForColumn(userId, columnId, 'editor');
+
+    return db.transaction(async (tx) => {
+        const bloqueadas = await tx
+            .select({ id: columns.id, position: columns.position })
+            .from(columns)
+            .where(eq(columns.boardId, boardId))
+            .for('update');
+
+        const todas = bloqueadas.sort((x, y) => x.position - y.position || x.id - y.id);
+
+        if(!todas.some((c) => c.id === columnId)) {
+            throw new BoardNotFoundError();
+        }
+
+        const resto = todas.filter((c) => c.id !== columnId);
+        const indice = afterId === null ? -1 : resto.findIndex((c) => c.id === afterId);
+
+        if(afterId !== null && indice === -1) {
+            throw new InvalidMoveError();
+        }
+
+        const anterior = resto[indice] ?? null;
+        const siguiente = resto[indice + 1] ?? null;
+        let position = posicionEntre(anterior?.position ?? null, siguiente?.position ?? null);
+
+        if(position === null) {
+            for(const [i, c] of resto.entries()) {
+                const lugar = i <= indice ? i + 1 : i + 2;
+                await tx.update(columns).set({ position: lugar * SEPARACION }).where(eq(columns.id, c.id));
+            }
+            position = (indice + 2) * SEPARACION;
+        }
+
+        const [column] = await tx
+            .update(columns)
+            .set({ position })
+            .where(eq(columns.id, columnId))
+            .returning();
+
+        if(!column) {
+            throw new BoardNotFoundError();
+        }
+
+        return column;
+    });
 }

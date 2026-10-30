@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import app from '../src/app.js';
-import { db } from '../src/db/client.js';
+import { db, pool } from '../src/db/client.js';
 import { cards, columns } from '../src/db/schema.js';
 import { agregarMiembro, crearColumna, crearTablero, crearUsuarioYToken } from './helpers.js';
 
@@ -445,6 +445,332 @@ describe('DELETE /columns/:id', () => {
     });
 });
 
+describe('PATCH /columns/:id/move', () => {
+    function mover(token: string, columnId: number | string, body: object) {
+        return request(app)
+            .patch(`/columns/${columnId}/move`)
+            .set('Authorization', `Bearer ${token}`)
+            .send(body);
+    }
+
+    // Las columnas del tablero tal como las ordena la base (position y desempate por id).
+    async function leerTablero(boardId: number) {
+        return db
+            .select()
+            .from(columns)
+            .where(eq(columns.boardId, boardId))
+            .orderBy(asc(columns.position), asc(columns.id));
+    }
+
+    async function ordenDe(boardId: number) {
+        return (await leerTablero(boardId)).map((fila) => fila.title);
+    }
+
+    async function posicionesDe(boardId: number) {
+        return (await leerTablero(boardId)).map((fila) => [fila.title, fila.position]);
+    }
+
+    it('al principio (afterId null) la columna queda con la posicion de la primera menos 1000 y no toca a las demas', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        await crearColumna(token, boardId, 'A');
+        await crearColumna(token, boardId, 'B');
+        const c = await crearColumna(token, boardId, 'C');
+
+        const response = await mover(token, c.id, { afterId: null });
+
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({ id: c.id, boardId, title: 'C', position: 0 });
+        expect(await posicionesDe(boardId)).toEqual([['C', 0], ['A', 1000], ['B', 2000]]);
+    });
+
+    it('entre dos columnas queda en el punto medio y no toca a las demas', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const a = await crearColumna(token, boardId, 'A');
+        await crearColumna(token, boardId, 'B');
+        const c = await crearColumna(token, boardId, 'C');
+
+        const response = await mover(token, c.id, { afterId: a.id });
+
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({ id: c.id, title: 'C', position: 1500 });
+        expect(await posicionesDe(boardId)).toEqual([['A', 1000], ['C', 1500], ['B', 2000]]);
+    });
+
+    it('al final (afterId = la ultima) queda 1000 despues de la ultima', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const a = await crearColumna(token, boardId, 'A');
+        await crearColumna(token, boardId, 'B');
+        const c = await crearColumna(token, boardId, 'C');
+
+        const response = await mover(token, a.id, { afterId: c.id });
+
+        expect(response.status).toBe(200);
+        expect(response.body.position).toBe(4000);
+        expect(await posicionesDe(boardId)).toEqual([['B', 2000], ['C', 3000], ['A', 4000]]);
+    });
+
+    it('moverla despues de la que ya tiene arriba no cambia el orden', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const a = await crearColumna(token, boardId, 'A');
+        const b = await crearColumna(token, boardId, 'B');
+        await crearColumna(token, boardId, 'C');
+
+        const response = await mover(token, b.id, { afterId: a.id });
+
+        expect(response.status).toBe(200);
+        expect(await ordenDe(boardId)).toEqual(['A', 'B', 'C']);
+    });
+
+    it('una columna unica se puede mover (queda en 1000)', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const unica = await crearColumna(token, boardId, 'Unica');
+
+        const response = await mover(token, unica.id, { afterId: null });
+
+        expect(response.status).toBe(200);
+        expect(response.body.position).toBe(1000);
+    });
+
+    // Se fuerza el hueco agotado por SQL: A y B con la misma posicion, o con dos numeros double consecutivos.
+    it.each([
+        ['iguales', 1000, 1000],
+        ['consecutivas en double', 1, 1 + Number.EPSILON],
+    ])('si las vecinas estan pegadas (%s) renumera todo el tablero de a 1000 y la movida queda en su lugar', async (_caso, posA, posB) => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const a = await crearColumna(token, boardId, 'A');
+        const b = await crearColumna(token, boardId, 'B');
+        await crearColumna(token, boardId, 'C');
+        const d = await crearColumna(token, boardId, 'D');
+        await db.update(columns).set({ position: posA }).where(eq(columns.id, a.id));
+        await db.update(columns).set({ position: posB }).where(eq(columns.id, b.id));
+
+        const response = await mover(token, d.id, { afterId: a.id });
+
+        expect(response.status).toBe(200);
+        expect(response.body.position).toBe(2000);
+        expect(await posicionesDe(boardId)).toEqual([['A', 1000], ['D', 2000], ['B', 3000], ['C', 4000]]);
+    });
+
+    // Dos columnas empatadas se ordenan por id. Sin ese desempate quedaria el orden fisico de la base, que normalmente
+    // coincide con el de id; por eso se reescriben B y A (en ese orden) para que sus filas pasen al final: fisicamente B va antes que A.
+    it('si dos vecinas tienen la misma posicion las desempata por id, no por su orden fisico en la base', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const a = await crearColumna(token, boardId, 'A');
+        const b = await crearColumna(token, boardId, 'B');
+        await crearColumna(token, boardId, 'C');
+        const d = await crearColumna(token, boardId, 'D');
+        await db.update(columns).set({ position: 1000 }).where(eq(columns.id, b.id));
+        await db.update(columns).set({ position: 1000 }).where(eq(columns.id, a.id));
+
+        const response = await mover(token, d.id, { afterId: a.id });
+
+        expect(response.status).toBe(200);
+        expect(await posicionesDe(boardId)).toEqual([['A', 1000], ['D', 2000], ['B', 3000], ['C', 4000]]);
+    });
+
+    it('el rescate no toca las columnas de otros tableros', async () => {
+        const { token } = await crearUsuarioYToken();
+        const mio = await crearTablero(token, 'Mio');
+        const otro = await crearTablero(token, 'Otro');
+        const a = await crearColumna(token, mio, 'A');
+        const b = await crearColumna(token, mio, 'B');
+        const d = await crearColumna(token, mio, 'D');
+        await crearColumna(token, otro, 'X');
+        await crearColumna(token, otro, 'Y');
+        await db.update(columns).set({ position: 1000 }).where(eq(columns.id, b.id));
+
+        const response = await mover(token, d.id, { afterId: a.id });
+
+        expect(response.status).toBe(200);
+        expect(await posicionesDe(otro)).toEqual([['X', 1000], ['Y', 2000]]);
+    });
+
+    it.each(['owner', 'editor'] as const)('un %s puede mover columnas', async (rol) => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const miembro = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        if (rol !== 'owner') await agregarMiembro(boardId, miembro.user.id, rol);
+        await crearColumna(dueño.token, boardId, 'A');
+        const b = await crearColumna(dueño.token, boardId, 'B');
+        const quien = rol === 'owner' ? dueño : miembro;
+
+        const response = await mover(quien.token, b.id, { afterId: null });
+
+        expect(response.status).toBe(200);
+        expect(await ordenDe(boardId)).toEqual(['B', 'A']);
+    });
+
+    it('responde 403 a un viewer y no cambia nada', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const lector = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await agregarMiembro(boardId, lector.user.id, 'viewer');
+        await crearColumna(dueño.token, boardId, 'A');
+        const b = await crearColumna(dueño.token, boardId, 'B');
+
+        const response = await mover(lector.token, b.id, { afterId: null });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: 'Prohibido' });
+        expect(await posicionesDe(boardId)).toEqual([['A', 1000], ['B', 2000]]);
+    });
+
+    it('el rol se evalua en el tablero de la columna, no en otro donde el usuario es owner', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const tableroDeAna = await crearTablero(ana.token, 'De Ana');
+        await crearTablero(beto.token, 'De Beto');
+        await agregarMiembro(tableroDeAna, beto.user.id, 'viewer');
+        await crearColumna(ana.token, tableroDeAna, 'A');
+        const b = await crearColumna(ana.token, tableroDeAna, 'B');
+
+        const response = await mover(beto.token, b.id, { afterId: null });
+
+        expect(response.status).toBe(403);
+        expect(await ordenDe(tableroDeAna)).toEqual(['A', 'B']);
+    });
+
+    it('responde 404 a quien no es miembro, igual que a una columna inexistente', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const ajeno = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+        await crearColumna(dueño.token, boardId, 'A');
+        const b = await crearColumna(dueño.token, boardId, 'B');
+
+        const deAjeno = await mover(ajeno.token, b.id, { afterId: null });
+        const inexistente = await mover(ajeno.token, 999999, { afterId: null });
+
+        expect(deAjeno.status).toBe(404);
+        expect(deAjeno.body).toEqual(inexistente.body);
+        expect(await ordenDe(boardId)).toEqual(['A', 'B']);
+    });
+
+    it('responde 400 si afterId no existe, y no cambia nada', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        await crearColumna(token, boardId, 'A');
+        const b = await crearColumna(token, boardId, 'B');
+
+        const response = await mover(token, b.id, { afterId: 999999 });
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({ error: 'Movimiento invalido' });
+        expect(await posicionesDe(boardId)).toEqual([['A', 1000], ['B', 2000]]);
+    });
+
+    it('responde 400 si afterId es de otro tablero, con el mismo cuerpo que si no existiera', async () => {
+        const { token } = await crearUsuarioYToken();
+        const mio = await crearTablero(token, 'Mio');
+        const otro = await crearTablero(token, 'Otro');
+        await crearColumna(token, mio, 'A');
+        const b = await crearColumna(token, mio, 'B');
+        const ajena = await crearColumna(token, otro, 'Ajena');
+
+        const deOtro = await mover(token, b.id, { afterId: ajena.id });
+        const inexistente = await mover(token, b.id, { afterId: 999999 });
+
+        expect(deOtro.status).toBe(400);
+        expect(deOtro.body).toEqual(inexistente.body);
+        expect(await posicionesDe(mio)).toEqual([['A', 1000], ['B', 2000]]);
+        expect(await posicionesDe(otro)).toEqual([['Ajena', 1000]]);
+    });
+
+    it('responde 400 si afterId es la propia columna', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        await crearColumna(token, boardId, 'A');
+        const b = await crearColumna(token, boardId, 'B');
+
+        const response = await mover(token, b.id, { afterId: b.id });
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({ error: 'Movimiento invalido' });
+        expect(await posicionesDe(boardId)).toEqual([['A', 1000], ['B', 2000]]);
+    });
+
+    it.each([
+        ['sin afterId', {}],
+        ['con afterId como texto', { afterId: '1' }],
+        ['con afterId 0', { afterId: 0 }],
+        ['con afterId negativo', { afterId: -1 }],
+        ['con afterId decimal', { afterId: 1.5 }],
+        ['con afterId mayor al maximo de un int4', { afterId: 2_147_483_648 }],
+    ])('responde 400 %s y no cambia nada', async (_caso, body) => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        await crearColumna(token, boardId, 'A');
+        const b = await crearColumna(token, boardId, 'B');
+
+        const response = await mover(token, b.id, body);
+
+        expect(response.status).toBe(400);
+        expect(response.body.fields).toHaveProperty('afterId');
+        expect(await posicionesDe(boardId)).toEqual([['A', 1000], ['B', 2000]]);
+    });
+
+    it('ignora position, boardId y title del body: solo manda afterId', async () => {
+        const { token } = await crearUsuarioYToken();
+        const tableroA = await crearTablero(token, 'A');
+        const tableroB = await crearTablero(token, 'B');
+        await crearColumna(token, tableroA, 'Primera');
+        const segunda = await crearColumna(token, tableroA, 'Segunda');
+
+        const response = await mover(token, segunda.id, { afterId: null, position: 99999, boardId: tableroB, title: 'Hackeada' });
+
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({ boardId: tableroA, title: 'Segunda', position: 0 });
+    });
+
+    it('responde 401 sin token', async () => {
+        const response = await request(app).patch('/columns/1/move').send({ afterId: null });
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'No autenticado' });
+    });
+
+    // Carrera determinista: una transaccion "X" (a mano) bloquea las columnas del tablero y mueve B al principio
+    // SIN confirmar todavia. Mientras tanto se pide mover C despues de A. Ese pedido tiene que esperar el bloqueo y,
+    // cuando X confirma, calcular sobre el orden NUEVO (B, A, C): C queda en 2000 (1000 despues de A, que ahora es la ultima).
+    // Si no espera, o si ordena con el orden viejo, C se acomoda mal y el movimiento de B se pierde.
+    it('un pedido que espera el bloqueo calcula sobre el orden confirmado por el otro movimiento', async () => {
+        const { token } = await crearUsuarioYToken();
+        const boardId = await crearTablero(token);
+        const a = await crearColumna(token, boardId, 'A');
+        const b = await crearColumna(token, boardId, 'B');
+        const c = await crearColumna(token, boardId, 'C');
+
+        const conexionX = await pool.connect();
+        try {
+            await conexionX.query('BEGIN');
+            await conexionX.query('SELECT id FROM columns WHERE board_id = $1 FOR UPDATE', [boardId]);
+            await conexionX.query('UPDATE columns SET position = 500 WHERE id = $1', [b.id]);
+
+            // .then() hace que supertest envie la request ahora, sin esperar la respuesta.
+            const pedido = mover(token, c.id, { afterId: a.id }).then((r) => r);
+
+            await new Promise((resolve) => setTimeout(resolve, 400));
+            await conexionX.query('COMMIT');
+
+            const respuesta = await pedido;
+
+            expect(respuesta.status).toBe(200);
+            expect(respuesta.body.position).toBe(2000);
+        } finally {
+            await conexionX.query('ROLLBACK').catch(() => undefined);
+            conexionX.release();
+        }
+
+        expect(await posicionesDe(boardId)).toEqual([['B', 500], ['A', 1000], ['C', 2000]]);
+    });
+});
+
 // Un id invalido en la URL tiene que dar 404 en JSON y nunca llegar a la base (que respondería 500).
 // Se usa un tablero y una columna reales para que un id invalido que se colara por el schema llegue a la consulta.
 describe('ids invalidos en la URL (columnas)', () => {
@@ -454,6 +780,7 @@ describe('ids invalidos en la URL (columnas)', () => {
         { metodo: 'get', ruta: '/boards/:id/columns' },
         { metodo: 'post', ruta: '/boards/:id/columns', body: { title: 'X' } },
         { metodo: 'patch', ruta: '/columns/:id', body: { title: 'X' } },
+        { metodo: 'patch', ruta: '/columns/:id/move', body: { afterId: null } },
         { metodo: 'delete', ruta: '/columns/:id' },
     ] as const;
 

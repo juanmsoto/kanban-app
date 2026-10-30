@@ -18,3 +18,6 @@ export class MemberNotFoundError extends Error {}
 
 // La operacion dejaria al tablero sin ningun owner.
 export class LastOwnerError extends Error {}
+
+// El afterId de un movimiento no es una vecina valida: no existe, es de otro tablero o es el propio elemento.
+export class InvalidMoveError extends Error {}

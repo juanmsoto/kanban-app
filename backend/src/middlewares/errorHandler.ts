@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { DatabaseError } from 'pg';
 import { DrizzleQueryError } from 'drizzle-orm';
-import { AlreadyMemberError, BoardNotFoundError, ForbiddenError, LastOwnerError, MemberNotFoundError, UserNotFoundError } from '../errors.js';
+import { AlreadyMemberError, BoardNotFoundError, ForbiddenError, InvalidMoveError, LastOwnerError, MemberNotFoundError, UserNotFoundError } from '../errors.js';
 
 // Loguea el error sin volcar los parametros de la consulta (traen el password_hash).
 function logError(err: unknown) {
@@ -59,6 +59,11 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
 
     if(err instanceof LastOwnerError) {
         res.status(409).json({ error: 'El tablero debe tener al menos un owner' });
+        return;
+    }
+    
+    if(err instanceof InvalidMoveError) {
+        res.status(400).json({ error: 'Movimiento invalido' });
         return;
     }
 

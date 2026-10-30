@@ -4,9 +4,8 @@ import { cards, columns } from '../../db/schema.js';
 import { BoardNotFoundError } from '../../errors.js';
 import { assertBoardRole } from '../boards/boards.service.js';
 import { assertBoardRoleForColumn } from '../columns/columns.service.js';
+import { SEPARACION } from '../../position.js';
 import type { CreateCardInput, UpdateCardInput } from './cards.schemas.js';
-
-const SEPARACION = 1000;
 
 async function assertBoardRoleForCard(userId: number, cardId: number, minimo: 'viewer' | 'editor' | 'owner') {
     const [fila] = await db
