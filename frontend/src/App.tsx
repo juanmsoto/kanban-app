@@ -1,29 +1,64 @@
-import { useState } from 'react';
+import { BrowserRouter, Routes, Route, useParams, Link } from 'react-router';
 import './App.css';
 
-type CardProps = {
-    title: string;
-};
+function Home() {
+    return <h1>Inicio</h1>;
+}
 
-function Card({ title }: CardProps) {
-    const [isDone, setIsDone] = useState(false);
+function About() {
+    return <h1>Acerca de</h1>;
+}
+
+function Login() {
+    return (
+        <div>
+            <h1>Iniciar sesion</h1>
+            <Link to="/boards">Mis tableros</Link>
+        </div>
+    );
+}
+
+function Boards() {
+    return (
+        <div>
+            <h1>Mis tableros</h1>
+            <Link to="/boards/1">Tablero 1</Link>
+        </div>
+    );
+}
+
+function Board() {
+    const { id } = useParams();
 
     return (
         <div>
-            <p>{title}</p>
-            <p>{isDone ? 'Hecha' : 'Pendiente'}</p>
-            <button onClick={() => setIsDone(!isDone)}>Alternar</button>
+            <h1>Tablero {id}</h1>
+            <Link to="/boards">Volver</Link>
+        </div>
+    );
+}
+
+function NotFound() {
+    return (
+        <div>
+            <h1>Página no encontrada</h1>
+            <Link to="/boards">Volver</Link>
         </div>
     );
 }
 
 function App() {
     return (
-        <div>
-            <h1>Hola, Kanban App</h1>
-            <Card title="Estudiar React" />
-            <Card title="Hacer el login" />
-        </div>
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/boards" element={<Boards />} />
+                <Route path="/boards/:id" element={<Board />} />
+                <Route path="*" element={<NotFound />} />
+            </Routes>
+        </BrowserRouter>
     );
 }
 
