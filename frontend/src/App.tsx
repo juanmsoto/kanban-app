@@ -7,14 +7,17 @@ import Board from './pages/Board';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
+import PublicRoute from './components/PublicRoute';
 
 function App() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+                <Route element={<PublicRoute />}>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                </Route>
                 <Route element={<ProtectedRoute />}>
                     <Route path="/boards" element={<Boards />} />
                     <Route path="/boards/:id" element={<Board />} />
