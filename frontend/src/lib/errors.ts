@@ -1,4 +1,7 @@
-import type { ErrorResponse } from './types';
+type ErrorResponse = {
+    error: string;
+    fields?: Record<string, string[]>;
+};
 
 export class ApiError extends Error {
     fields: Record<string, string[]> | undefined;

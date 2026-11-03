@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router';
-import { getToken } from '../auth/token';
+import { getToken } from '../lib/token';
 
 function ProtectedRoute() {
     const token = getToken();

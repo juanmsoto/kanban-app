@@ -1,5 +1,5 @@
-import { throwApiError } from './errors';
-import type { User } from './types';
+import { throwApiError } from '../../lib/errors';
+import type { User } from '../../lib/types';
 
 type LoginResult = {
     token: string;
