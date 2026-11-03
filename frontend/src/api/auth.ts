@@ -1,16 +1,12 @@
-export type ErrorResponse = {
-    error: string;
-    fields?: Record<string, string[]>;
-};
+import { throwApiError } from './errors';
+import type { User } from './types';
 
-export type User = {
-    id: number;
-    name: string;
-    email: string;
-};
-
-export type LoginResult = {
+type LoginResult = {
     token: string;
+    user: User;
+};
+
+type RegisterResult = {
     user: User;
 };
 
@@ -24,11 +20,28 @@ export async function login(
         body: JSON.stringify({ email, password }),
     });
 
-    if (!response.ok) {
-        const errorBody: ErrorResponse = await response.json();
-        throw new Error(errorBody.error);
-    }
+    await throwApiError(response);
 
     const data: LoginResult = await response.json();
+    return data;
+}
+
+export async function register(
+    name: string,
+    email: string,
+    password: string,
+): Promise<RegisterResult> {
+    const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/auth/register`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password }),
+        },
+    );
+
+    await throwApiError(response);
+
+    const data: RegisterResult = await response.json();
     return data;
 }
