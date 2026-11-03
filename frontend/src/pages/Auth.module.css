@@ -1,0 +1,107 @@
+/* Estilos compartidos por las pantallas de acceso (login y registro). */
+
+.page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+}
+
+.card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.title {
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
+}
+
+.subtitle {
+    color: var(--color-muted);
+    margin-top: 4px;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.label {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.input {
+    font: inherit;
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+
+.error {
+    font-size: 0.875rem;
+    color: #b42318;
+    background: #fef3f2;
+    border: 1px solid #fecdca;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .error {
+        color: #fda29b;
+        background: #2a1514;
+        border-color: #5c2420;
+    }
+}
+
+.button {
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    border: none;
+    border-radius: var(--radius);
+    padding: 11px 16px;
+}
+
+.button:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+}
+
+.button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.footer {
+    font-size: 0.9375rem;
+    color: var(--color-muted);
+    text-align: center;
+}
