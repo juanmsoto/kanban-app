@@ -5,6 +5,7 @@ import Register from './pages/Register';
 import Boards from './pages/Boards';
 import Board from './pages/Board';
 import NotFound from './pages/NotFound';
+import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
 function App() {
@@ -14,8 +15,10 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/boards" element={<Boards />} />
-                <Route path="/boards/:id" element={<Board />} />
+                <Route element={<ProtectedRoute />}>
+                    <Route path="/boards" element={<Boards />} />
+                    <Route path="/boards/:id" element={<Board />} />
+                </Route>
                 <Route path="*" element={<NotFound />} />
             </Routes>
         </BrowserRouter>

@@ -2,7 +2,7 @@ import { useState, type SubmitEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import styles from './Auth.module.css';
 import { login } from '../api/auth';
-import { saveToken } from '../api/token';
+import { saveToken } from '../auth/token';
 
 function Login() {
     const [email, setEmail] = useState('');
