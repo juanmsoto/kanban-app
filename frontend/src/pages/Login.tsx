@@ -1,13 +1,15 @@
 import { useState, type SubmitEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import styles from './Auth.module.css';
 import { login } from '../api/auth';
+import { saveToken } from '../api/token';
 
 function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
 
     async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -15,7 +17,8 @@ function Login() {
         setIsLoading(true);
         try {
             const data = await login(email, password);
-            console.log(data);
+            saveToken(data.token);
+            navigate('/boards');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Error desconocido');
         } finally {
