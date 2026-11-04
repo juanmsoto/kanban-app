@@ -5,14 +5,32 @@ export const cardIdParamSchema = z.object({
 });
 
 export const createCardSchema = z.object({
-    title: z.string().trim().min(1).max(100),
-    description: z.string().trim().max(2000).optional(),
+    title: z
+        .string()
+        .trim()
+        .min(1, 'El titulo es obligatorio')
+        .max(100, 'El titulo no puede superar los 100 caracteres'),
+    description: z
+        .string()
+        .trim()
+        .max(2000, 'La descripcion no puede superar los 2000 caracteres')
+        .optional(),
 });
 
 export const updateCardSchema = z
     .object({
-        title: z.string().trim().min(1).max(100).optional(),
-        description: z.string().trim().max(2000).nullable().optional(),
+        title: z
+            .string()
+            .trim()
+            .min(1, 'El titulo es obligatorio')
+            .max(100, 'El titulo no puede superar los 100 caracteres')
+            .optional(),
+        description: z
+            .string()
+            .trim()
+            .max(2000, 'La descripcion no puede superar los 2000 caracteres')
+            .nullable()
+            .optional(),
     })
     .refine((data) => data.title !== undefined || data.description !== undefined, {
         message: 'Hay que enviar al menos un campo',

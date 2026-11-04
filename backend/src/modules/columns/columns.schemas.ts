@@ -5,11 +5,19 @@ export const columnIdParamSchema = z.object({
 });
 
 export const createColumnSchema = z.object({
-    title: z.string().trim().min(1).max(100),
+    title: z
+        .string()
+        .trim()
+        .min(1, 'El titulo es obligatorio')
+        .max(100, 'El titulo no puede superar los 100 caracteres'),
 });
 
 export const updateColumnSchema = z.object({
-    title: z.string().trim().min(1).max(100),
+    title: z
+        .string()
+        .trim()
+        .min(1, 'El titulo es obligatorio')
+        .max(100, 'El titulo no puede superar los 100 caracteres'),
 });
 
 export const moveColumnSchema = z.object({

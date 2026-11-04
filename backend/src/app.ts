@@ -9,6 +9,11 @@ import columnsRoutes from './modules/columns/columns.routes.js';
 import cardsRoutes from './modules/cards/cards.routes.js';
 import { notFound, errorHandler } from './middlewares/errorHandler.js';
 import { corsOrigin } from './config.js';
+import { z } from 'zod';
+
+// Mensajes de validación de Zod en español para toda la API. Es el respaldo:
+// los mensajes escritos a mano en cada schema tienen prioridad sobre estos.
+z.config(z.locales.es());
 
 const app = express();
 
