@@ -63,6 +63,27 @@
     border-color: transparent;
 }
 
+/* Input con un error de validación (aria-invalid lo marca el componente). */
+.input[aria-invalid='true'] {
+    border-color: #d92d20;
+}
+
+/* Mensaje chico bajo un campo puntual (errores de `fields`). */
+.fieldError {
+    font-size: 0.8125rem;
+    color: #b42318;
+}
+
+@media (prefers-color-scheme: dark) {
+    .input[aria-invalid='true'] {
+        border-color: #f97066;
+    }
+
+    .fieldError {
+        color: #fda29b;
+    }
+}
+
 .error {
     font-size: 0.875rem;
     color: #b42318;

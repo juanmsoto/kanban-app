@@ -3,26 +3,39 @@ import { Link, useNavigate } from 'react-router';
 import styles from './Auth.module.css';
 import { login } from './auth.api';
 import { saveToken } from '../../lib/token';
+import { ApiError } from '../../lib/errors';
 
 function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>(
+        {},
+    );
     const navigate = useNavigate();
 
     async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
         setError('');
+        setFieldErrors({});
         setIsLoading(true);
+
         try {
             const data = await login(email, password);
             saveToken(data.token);
             navigate('/boards');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Error desconocido');
-        } finally {
+            if (err instanceof ApiError && err.fields) {
+                setFieldErrors(err.fields);
+            } else if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError('Error desconocido');
+            }
+
             setIsLoading(false);
+            return;
         }
     }
 
@@ -45,8 +58,14 @@ function Login() {
                             autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            aria-invalid={Boolean(fieldErrors.email)}
                             required
                         />
+                        {fieldErrors.email && (
+                            <span className={styles.fieldError}>
+                                {fieldErrors.email[0]}
+                            </span>
+                        )}
                     </label>
 
                     <label className={styles.field}>
@@ -57,8 +76,14 @@ function Login() {
                             autoComplete="current-password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            aria-invalid={Boolean(fieldErrors.password)}
                             required
                         />
+                        {fieldErrors.password && (
+                            <span className={styles.fieldError}>
+                                {fieldErrors.password[0]}
+                            </span>
+                        )}
                     </label>
 
                     {error && (
