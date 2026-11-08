@@ -2,8 +2,8 @@ import { useState, type SubmitEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import styles from './Auth.module.css';
 import { login, register } from './auth.api';
-import { saveToken } from '../../lib/token';
 import { ApiError } from '../../lib/errors';
+import { useSession } from '../../lib/session';
 
 function Register() {
     const [name, setName] = useState('');
@@ -15,6 +15,7 @@ function Register() {
         {},
     );
     const navigate = useNavigate();
+    const { startSession } = useSession();
 
     async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -39,7 +40,7 @@ function Register() {
 
         try {
             const data = await login(email, password);
-            saveToken(data.token);
+            startSession(data.token, data.user);
             navigate('/boards');
         } catch {
             navigate('/login');

@@ -51,18 +51,18 @@ function SessionProvider({ children }: SessionProviderProps) {
         checkSession();
     }, []);
 
-    function login(token: string, user: User) {
+    function startSession(token: string, user: User) {
         saveToken(token);
         setSession({ status: 'loggedIn', user });
     }
 
-    function logout() {
+    function endSession() {
         clearToken();
         setSession({ status: 'loggedOut' });
     }
 
     return (
-        <SessionContext value={{ session, login, logout }}>
+        <SessionContext value={{ session, startSession, endSession }}>
             {children}
         </SessionContext>
     );

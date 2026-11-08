@@ -8,8 +8,8 @@ export type Session =
 
 type SessionContextValue = {
     session: Session;
-    login: (token: string, user: User) => void;
-    logout: () => void;
+    startSession: (token: string, user: User) => void;
+    endSession: () => void;
 };
 
 export const SessionContext = createContext<SessionContextValue | null>(null);

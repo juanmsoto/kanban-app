@@ -2,7 +2,7 @@ import { useState, type SubmitEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import styles from './Auth.module.css';
 import { login } from './auth.api';
-import { saveToken } from '../../lib/token';
+import { useSession } from '../../lib/session';
 import { ApiError } from '../../lib/errors';
 
 function Login() {
@@ -14,6 +14,7 @@ function Login() {
         {},
     );
     const navigate = useNavigate();
+    const { startSession } = useSession();
 
     async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -23,7 +24,7 @@ function Login() {
 
         try {
             const data = await login(email, password);
-            saveToken(data.token);
+            startSession(data.token, data.user);
             navigate('/boards');
         } catch (err) {
             if (err instanceof ApiError && err.fields) {
