@@ -1,45 +1,15 @@
 # Progreso: Kanban con equipos
 
 ## Dónde estamos y qué sigue
-**LEER PRIMERO (2026-11-08, traspaso a otra máquina):** rama `feature/frontend-base`, publicada en GitHub en esta fecha (antes solo existía local). Último commit: `feat(frontend): agregar contexto de sesion y status en ApiError (en curso)`; el anterior es `a129c71` (`feat(backend): mensajes de validacion en espanol`). El árbol queda limpio. `.claude/launch.json` (config del navegador integrado de Claude: solo apunta a `http://localhost:5173`, sin datos sensibles) entró al repo en `acb23bb` sin que se planeara; decidir con Juan si se queda o se saca con `git rm --cached` + `.gitignore` (no urgente). **Estado de los tests:** backend `npm test` 287/287 (último corrido el 2026-11-04, sin cambios de backend desde entonces). Frontend: `npx tsc -b` da UN error esperado, `TS6133: 'fetchMe' is declared but its value is never read` en `src/lib/SessionProvider.tsx`, porque `fetchMe` se usa recién en el próximo paso; por eso `npm run build` del frontend falla hasta entonces (`oxlint` solo da el aviso equivalente). La app corre bien en `npm run dev`.
+**LEER PRIMERO (2026-11-08):** rama `feature/frontend-base` (publicada en GitHub), último commit `e66ad67` (`feat(frontend): agregar contexto de sesion y status en ApiError (en curso)`). Sin commitear: el `useEffect` de `lib/SessionProvider.tsx` (hecho y verificado, ver abajo). `npx tsc -b` y `npx oxlint src` limpios. Backend `npm test` 287/287 (último corrido el 2026-11-04, sin cambios de backend desde entonces). `.claude/launch.json` (config del navegador integrado de Claude: solo apunta a `http://localhost:5173`) entró al repo en `acb23bb` sin que se planeara; decidir con Juan si se queda (no urgente).
 
-**Al llegar a la otra máquina:** `git fetch` y `git checkout feature/frontend-base`; backend como dice "Para retomar en otra PC" más abajo (los tests deben dar 287/287, no 113); frontend: `cd frontend && npm install && cp .env.example .env` (solo `VITE_API_URL=http://localhost:3000`). Levantar `npm run dev` en `backend/` y en `frontend/`.
+**Para trabajar en otra máquina:** `git fetch` y `git checkout feature/frontend-base`; backend como dice "Para retomar en otra PC" más abajo; frontend: `cd frontend && npm install && cp .env.example .env`. Levantar `npm run dev` en `backend/` y en `frontend/`.
 
 **Qué está hecho de la sesión del cliente (todo de Juan, revisado por Claude):** `lib/errors.ts`: `ApiError` con `status` (`constructor(message, status, fields?)`), `throwApiError` pasa `response.status`. `lib/session.ts`: `type Session = { status: 'checking' } | { status: 'loggedOut' } | { status: 'loggedIn'; user: User }`, `SessionContextValue` (`session`, `login(token, user)`, `logout()`), `SessionContext = createContext<SessionContextValue | null>(null)` y `useSession()` (lanza si se usa fuera del provider). `lib/SessionProvider.tsx`: `fetchMe(token)` (GET `/auth/me` con `Authorization: Bearer`), `useState<Session>` inicial (`loggedOut` sin token, `checking` con token), `login` (`saveToken` + `loggedIn`), `logout` (`clearToken` + `loggedOut`) y `return <SessionContext value={{ session, login, logout }}>{children}</SessionContext>`. `main.tsx`: `<StrictMode><SessionProvider><App /></SessionProvider></StrictMode>` (verificado en el navegador: carga igual, sin errores). Nadie lee todavía el contexto: los guardias siguen usando `getToken()`, así que con token la sesión queda en `checking` sin que se note.
 
-**Próximo paso (lo tipea Juan; es nuevo para él, así que Claude le muestra el código completo con desglose, regla de `CLAUDE.md`):** el chequeo al arrancar con `useEffect` dentro de `SessionProvider`, debajo del `useState`. Imports a sumar: `useEffect` (de `react`) y `ApiError` (de `./errors`). Código ya explicado a Juan el 2026-11-08 (no lo tipeó por la mudanza; repasarlo antes):
+**Chequeo al arrancar HECHO por Juan (2026-11-08):** `useEffect(() => {...}, [])` en `SessionProvider` con una función `async` interna `checkSession()`: sin token termina; con token llama a `fetchMe`; si responde, `loggedIn` con el usuario; si falla, `loggedOut`, y solo un `ApiError` con status 401 borra el token. **Sin bandera `ignore` ni limpieza, a propósito:** `SessionProvider` no se desmonta mientras la app está abierta, y los dos pedidos de `StrictMode` traen lo mismo; se ve en el detalle del tablero, donde sí hace falta. Verificado en el navegador: token inválido → dos GET `/auth/me` con 401 (`StrictMode`) y el token se borra; token válido de un usuario temporal → dos 200 y el token se queda. El usuario temporal se borró. No probado: backend caído (el token debería quedarse). Commit sugerido: `feat(frontend): verificar la sesion con /auth/me al arrancar`.
 
-```tsx
-useEffect(() => {
-    const token = getToken();
-    if (token === null) {
-        return;
-    }
-    let ignore = false;
-    async function checkSession(token: string) {
-        try {
-            const user = await fetchMe(token);
-            if (!ignore) {
-                setSession({ status: 'loggedIn', user });
-            }
-        } catch (err) {
-            if (ignore) {
-                return;
-            }
-            if (err instanceof ApiError && err.status === 401) {
-                clearToken();
-            }
-            setSession({ status: 'loggedOut' });
-        }
-    }
-    checkSession(token);
-    return () => {
-        ignore = true;
-    };
-}, []);
-```
-
-Puntos explicados: `useEffect` corre después de dibujar y `[]` = solo al montar; el callback no puede ser `async` (por eso la función interna, patrón de react.dev); `StrictMode` corre el efecto dos veces en desarrollo (monta, limpia, monta) y `ignore` descarta la respuesta del primero; solo el 401 borra el token (backend caído o 500 no). Cómo verificarlo: `tsc -b` limpio; con un token inválido en `localStorage`, al recargar aparece GET `/auth/me` con 401 y el token desaparece; con uno válido se queda. Commit sugerido al terminar: `feat(frontend): verificar la sesion con /auth/me al arrancar`.
+**Próximo paso:** (a) de la lista siguiente, explicando primero el problema y el mecanismo y recién después el código (pedido de Juan, 2026-11-08).
 
 **Después, en orden:** (a) `ProtectedRoute` y `PublicRoute` leen `useSession()` y, mientras `status === 'checking'`, muestran un "Cargando..." en vez de redirigir (Claude ya le mostró a Juan cómo queda `ProtectedRoute`; resuelve el hallazgo 10); (b) `Login.tsx` y `Register.tsx` llaman a `login(data.token, data.user)` del contexto en lugar de `saveToken`; (c) botón de cerrar sesión (marcado de Claude, conexión de Juan con `logout()`); (d) lista de tableros, con la función genérica de `fetch` con token en `lib/` (genéricos `<T>`, explicarlos desde cero) que vacía la sesión ante un 401. **Decisiones pendientes:** ninguna. **Riesgos abiertos:** ver "Hallazgos y riesgos abiertos" (el 10 se resuelve con el paso (a); el 12 es nuevo del 2026-11-04).
 
@@ -165,6 +135,7 @@ Ver tabla en `CLAUDE.md`. 2026-10-05: niveles recalibrados leyendo `ventas-app`;
 - Bloque 4 (2026-10-29/30): `getColumns(tabla)` (antes `getTableColumns`, deprecada) para que un `select` con `JOIN` traiga solo las columnas de una tabla; agrupar una lista plana con un `Map<clave, lista>` (`get`, `set`, `?? []`); orden por posición fraccionaria: el orden no se guarda, sale de ordenar por `position`, y mover es cambiar el número de UNA fila (punto medio entre las vecinas, `null` si no queda hueco y entonces se renumera la lista); `afterId` = id de la vecina de arriba (`null` = al principio) e `indice` = su lugar en la lista sin la movida (`-1` = al principio); `.nullable()` sin `.optional()` hace obligatoria la clave y `z.coerce` no va en un body JSON; `SELECT ... FOR UPDATE` como candado, deadlock (dos transacciones que piden candados en distinto orden), fila "guardiana" (mutex) que solo protege a quien la pide, y que `ORDER BY` + `FOR UPDATE` en la misma consulta devuelve valores nuevos en el orden viejo; el desempate por `id` y el orden físico de las filas empatadas; `READ COMMITTED` (cada consulta ve una foto fresca de lo confirmado).
 
 ## Dudas que costaron y cómo se destrabaron
+- 2026-11-08, `useEffect`, `ignore` y limpieza: no los entendió pese a tickets y a un ejemplo corrido. La raíz era que nadie le había explicado cuándo un componente aparece, se redibuja y se va (dibujar = React ejecuta la función). Se destrabó con la tabla de esos tres momentos usando su `Login` y `console.log` temporales. Al preguntar para qué servía `ignore` en `SessionProvider`, resultó que ahí no hacía falta, y se sacó. Queda pendiente de entender `ignore`: verlo con un caso real en el detalle del tablero. Juan pidió explicar a fondo qué hace cada cosa de verdad antes de pasar código.
 - 2026-11-04, contexto de sesión: Claude pasó de golpe `session.ts` + `SessionProvider.tsx` completos (contexto, hook propio, `children`, destructuring de props, tipos de funciones) y Juan no entendió nada. Se destrabó cambiando el ángulo: "es un `useState` que comparte toda la app", mostrando primero el lado de quien lo usa (`ProtectedRoute` con `useSession()` y los tres `status`) y un árbol de quién vive dónde. Juan lo resumió bien. Lección: con React, una sola idea nueva por paso; arrancar por lo que ya conoce (`useState`).
 - 2026-11-04, `createContext`/`useContext`/`children`: no le sirvieron ni la explicación con el "tubo" ni un ejemplo corrido con `renderToString` (Saludo/Caja). Se destrabó comparando con props: primero el mismo dato pasado a mano por cada nivel (un `Layout` que la recibe solo para pasarla), después la versión con canal: `createContext` crea el canal, `<X value>` mete el dato arriba, `useContext` lo saca abajo sin props. Juan lo resumió: "un contexto se crea para ponerlo arriba y que los datos pasen a los componentes de adentro con useContext". Lo que más le sirve: partir de un problema que reconoce en código que ya escribió.
 - `.env.example` desaparecido: al crear el `.env` se renombró la plantilla (`mv`) en vez de copiarla (`cp`), y nunca se commiteó. Se detectó en el cierre del Bloque 1 mirando la lista de archivos del squash. Lección: revisar que los archivos esperados estén en el commit, no solo que "no sobre nada".

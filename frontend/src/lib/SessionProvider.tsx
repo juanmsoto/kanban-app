@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { throwApiError } from './errors';
+import { useState, useEffect, type ReactNode } from 'react';
+import { throwApiError, ApiError } from './errors';
 import type { User } from './types';
 import { SessionContext, type Session } from './session';
 import { clearToken, getToken, saveToken } from './token';
@@ -27,6 +27,29 @@ function SessionProvider({ children }: SessionProviderProps) {
     const [session, setSession] = useState<Session>(
         getToken() === null ? { status: 'loggedOut' } : { status: 'checking' },
     );
+
+    useEffect(() => {
+        async function checkSession() {
+            const token = getToken();
+
+            if (token === null) {
+                return;
+            }
+
+            try {
+                const user = await fetchMe(token);
+                setSession({ status: 'loggedIn', user });
+            } catch (err) {
+                if (err instanceof ApiError && err.status === 401) {
+                    clearToken();
+                }
+
+                setSession({ status: 'loggedOut' });
+            }
+        }
+
+        checkSession();
+    }, []);
 
     function login(token: string, user: User) {
         saveToken(token);
