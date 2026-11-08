@@ -52,7 +52,7 @@ frontend/src/
 ├── main.tsx, App.tsx, index.css   entrada, rutas y tokens globales
 ├── pages/         pantallas que no son de ninguna funcionalidad (Home, NotFound)
 ├── components/    piezas compartidas, visuales o de ruteo (ProtectedRoute, PublicRoute; luego botones, modales), cada una con su .module.css al lado
-├── lib/           código compartido que no es visual (errors.ts, types.ts, token.ts; luego session.tsx y la función de fetch con token)
+├── lib/           código compartido que no es visual (errors.ts, types.ts, token.ts; luego session.ts + SessionProvider.tsx, decidido el 2026-11-04, y la función de fetch con token)
 └── features/<nombre>/   todo lo de una funcionalidad: <nombre>.api.ts (los fetch), sus pantallas, sus componentes y su CSS
     ├── auth/      auth.api.ts, Login.tsx, Register.tsx, Auth.module.css
     └── boards/    (tableros, columnas, tarjetas) Boards.tsx, Board.tsx; luego boards.api.ts, etc.
@@ -74,6 +74,8 @@ Lo repetitivo que escribís siempre se explica: Juan tiene que entender qué hay
 
 ## Ritmo
 Estricto: un paso chico por vez, con pausa de confirmación al final de cada uno. Se pueden crear juntas las piezas repetitivas que forman una unidad (carpetas + configs). Juan puede flexibilizarlo cuando quiera.
+
+**Piezas que Juan nunca escribió (pedido suyo, 2026-11-04):** cuando le toca escribir algo que no hizo antes (un concepto, una API o un patrón nuevo para él), no alcanza con describirle qué tiene que hacer: hay que mostrarle el código completo de cómo se hace, en su propio bloque y con un desglose línea por línea, y él lo tipea (no se lo crea Claude). Si ya escribió algo igual (por ejemplo, otro `fetch` como `login`), alcanza con la descripción y la referencia a ese archivo.
 
 ## Tono
 Español rioplatense con "vos", informal y directo, sin emojis, sin elogios excesivos: cuando algo está bien se dice en una frase y se sigue.
