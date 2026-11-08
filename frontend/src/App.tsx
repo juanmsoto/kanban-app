@@ -7,6 +7,7 @@ import Board from './features/boards/Board';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
+import AppLayout from './components/AppLayout';
 
 function App() {
     return (
@@ -18,8 +19,10 @@ function App() {
                     <Route path="/register" element={<Register />} />
                 </Route>
                 <Route element={<ProtectedRoute />}>
-                    <Route path="/boards" element={<Boards />} />
-                    <Route path="/boards/:id" element={<Board />} />
+                    <Route element={<AppLayout />}>
+                        <Route path="/boards" element={<Boards />} />
+                        <Route path="/boards/:id" element={<Board />} />
+                    </Route>
                 </Route>
                 <Route path="*" element={<NotFound />} />
             </Routes>
