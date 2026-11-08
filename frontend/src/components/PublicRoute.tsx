@@ -1,12 +1,14 @@
 import { Navigate, Outlet } from 'react-router';
-import { getToken } from '../lib/token';
+import { useSession } from '../lib/session';
 
 function PublicRoute() {
-    const token = getToken();
+    const { session } = useSession();
 
-    const isLoggedIn = token !== null;
+    if (session.status === 'checking') {
+        return <p>Cargando...</p>;
+    }
 
-    if (isLoggedIn) {
+    if (session.status === 'loggedIn') {
         return <Navigate to="/boards" replace />;
     }
 

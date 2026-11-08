@@ -1,12 +1,14 @@
 import { Navigate, Outlet } from 'react-router';
-import { getToken } from '../lib/token';
+import { useSession } from '../lib/session';
 
 function ProtectedRoute() {
-    const token = getToken();
+    const { session } = useSession();
 
-    const isAllowed = token !== null;
+    if (session.status === 'checking') {
+        return <p>Cargando...</p>;
+    }
 
-    if (!isAllowed) {
+    if (session.status === 'loggedOut') {
         return <Navigate to="/login" replace />;
     }
 
