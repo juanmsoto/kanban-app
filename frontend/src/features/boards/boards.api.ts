@@ -53,3 +53,14 @@ export async function createColumn(
         body: { title },
     });
 }
+
+export async function createCard(
+    columnId: number,
+    title: string,
+    description: string,
+) {
+    return apiFetch<Card>(`/columns/${columnId}/cards`, {
+        method: 'POST',
+        body: { title, description: description || undefined },
+    });
+}

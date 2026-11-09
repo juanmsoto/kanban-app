@@ -2,8 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ApiError } from '../../lib/errors';
 import { useSession } from '../../lib/session';
-import { getBoard, type BoardDetail, type Column } from './boards.api';
+import {
+    getBoard,
+    type BoardDetail,
+    type Card,
+    type Column,
+} from './boards.api';
 import CreateColumnForm from './CreateColumnForm';
+import CreateCardDialog from './CreateCardDialog';
 import styles from './Board.module.css';
 
 function Board() {
@@ -66,6 +72,21 @@ function Board() {
         setBoard({
             ...board,
             columns: [...board.columns, { ...column, cards: [] }],
+        });
+    }
+
+    function handleCardCreated(card: Card) {
+        if (board === null) {
+            return;
+        }
+
+        setBoard({
+            ...board,
+            columns: board.columns.map((column) =>
+                column.id === card.columnId
+                    ? { ...column, cards: [...column.cards, card] }
+                    : column,
+            ),
         });
     }
 
@@ -142,6 +163,13 @@ function Board() {
                                             </li>
                                         ))}
                                     </ul>
+                                )}
+                                {board.role !== 'viewer' && (
+                                    <CreateCardDialog
+                                        columnId={column.id}
+                                        columnTitle={column.title}
+                                        onCreated={handleCardCreated}
+                                    />
                                 )}
                             </section>
                         ))}

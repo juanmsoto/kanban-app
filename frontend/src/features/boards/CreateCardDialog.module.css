@@ -1,0 +1,164 @@
+/* Botón + al pie de cada columna y el cuadro para crear una tarjeta. */
+
+.openButton {
+    font: inherit;
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--color-muted);
+    background: transparent;
+    border: 1px dashed var(--color-border);
+    border-radius: 12px;
+    padding: 8px;
+}
+
+.openButton:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.openButton:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* Sin display acá: pisaría el estado cerrado del dialog. El flex va en el form. */
+.dialog {
+    width: min(100% - 32px, 440px);
+    padding: 20px;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+}
+
+.dialog:modal {
+    overscroll-behavior: contain;
+}
+
+.dialog::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background: rgb(16 24 40 / 50%);
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.label {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.input {
+    font: inherit;
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+textarea.input {
+    resize: vertical;
+    min-height: 96px;
+}
+
+.input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+
+.input[aria-invalid='true'] {
+    border-color: #d92d20;
+}
+
+.fieldError {
+    font-size: 0.8125rem;
+    color: #b42318;
+}
+
+.error {
+    font-size: 0.875rem;
+    color: #b42318;
+    background: #fef3f2;
+    border: 1px solid #fecdca;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .input[aria-invalid='true'] {
+        border-color: #f97066;
+    }
+
+    .fieldError {
+        color: #fda29b;
+    }
+
+    .error {
+        color: #fda29b;
+        background: #2a1514;
+        border-color: #5c2420;
+    }
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.secondaryButton,
+.primaryButton {
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 8px 14px;
+}
+
+.secondaryButton {
+    color: var(--color-text);
+    background: transparent;
+    border: 1px solid var(--color-border);
+}
+
+.secondaryButton:hover {
+    border-color: var(--color-primary);
+}
+
+.primaryButton {
+    color: var(--color-on-primary);
+    background: var(--color-primary);
+    border: 1px solid transparent;
+}
+
+.primaryButton:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+}
+
+.primaryButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
