@@ -13,6 +13,8 @@ function Board() {
     const { endSession } = useSession();
 
     useEffect(() => {
+        let ignore = false;
+
         async function loadBoard() {
             if (id === undefined) {
                 return;
@@ -23,8 +25,15 @@ function Board() {
 
             try {
                 const data = await getBoard(id);
-                setBoard(data);
+
+                if (!ignore) {
+                    setBoard(data);
+                }
             } catch (err) {
+                if (ignore) {
+                    return;
+                }
+
                 if (err instanceof ApiError && err.status === 401) {
                     endSession();
                     return;
@@ -35,11 +44,17 @@ function Board() {
                     err instanceof Error ? err.message : 'Error desconocido',
                 );
             } finally {
-                setIsLoading(false);
+                if (!ignore) {
+                    setIsLoading(false);
+                }
             }
         }
 
         loadBoard();
+
+        return () => {
+            ignore = true;
+        };
     }, [id, endSession]);
 
     return (
