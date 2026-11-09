@@ -1,4 +1,4 @@
-import { throwApiError } from '../../lib/errors';
+import { apiFetch } from '../../lib/api';
 import type { User } from '../../lib/types';
 
 type LoginResult = {
@@ -14,16 +14,10 @@ export async function login(
     email: string,
     password: string,
 ): Promise<LoginResult> {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+    return apiFetch<LoginResult>('/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: { email, password },
     });
-
-    await throwApiError(response);
-
-    const data: LoginResult = await response.json();
-    return data;
 }
 
 export async function register(
@@ -31,17 +25,8 @@ export async function register(
     email: string,
     password: string,
 ): Promise<RegisterResult> {
-    const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/auth/register`,
-        {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password }),
-        },
-    );
-
-    await throwApiError(response);
-
-    const data: RegisterResult = await response.json();
-    return data;
+    return apiFetch<RegisterResult>('/auth/register', {
+        method: 'POST',
+        body: { name, email, password },
+    });
 }
