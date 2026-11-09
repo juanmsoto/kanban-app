@@ -111,6 +111,26 @@ function Board() {
         });
     }
 
+    function handleCardDeleted(deletedCard: Card) {
+        if (board === null) {
+            return;
+        }
+
+        setBoard({
+            ...board,
+            columns: board.columns.map((column) =>
+                column.id === deletedCard.columnId
+                    ? {
+                          ...column,
+                          cards: column.cards.filter(
+                              (card) => card.id !== deletedCard.id,
+                          ),
+                      }
+                    : column,
+            ),
+        });
+    }
+
     return (
         <main className={styles.page}>
             <Link className={styles.back} to="/boards">
@@ -174,6 +194,9 @@ function Board() {
                                                     }
                                                     onUpdated={
                                                         handleCardUpdated
+                                                    }
+                                                    onDeleted={
+                                                        handleCardDeleted
                                                     }
                                                 >
                                                     <span

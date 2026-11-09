@@ -75,3 +75,9 @@ export async function updateCard(
         body: { title, description: description || null },
     });
 }
+
+export async function deleteCard(cardId: number): Promise<void> {
+    return apiFetch<void>(`/cards/${cardId}`, {
+        method: 'DELETE',
+    });
+}

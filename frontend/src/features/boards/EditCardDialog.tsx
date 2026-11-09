@@ -1,15 +1,15 @@
 import { useRef, useState, type ReactNode, type SubmitEvent } from 'react';
-import styles from './CreateCardDialog.module.css';
-import { updateCard, type Card } from './boards.api';
+import { deleteCard, updateCard, type Card } from './boards.api';
 import { useSession } from '../../lib/session';
 import { ApiError } from '../../lib/errors';
-
-// TODO: el resto de los imports (useState, SubmitEvent, ApiError, useSession, updateCard, Card)
+import ConfirmDialog from '../../components/ConfirmDialog';
+import styles from './CreateCardDialog.module.css';
 
 type EditCardDialogProps = {
     card: Card;
     canEdit: boolean;
     onUpdated: (card: Card) => void;
+    onDeleted: (card: Card) => void;
     children: ReactNode;
 };
 
@@ -17,6 +17,7 @@ function EditCardDialog({
     card,
     canEdit,
     onUpdated,
+    onDeleted,
     children,
 }: EditCardDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
@@ -68,6 +69,11 @@ function EditCardDialog({
 
     function handleClose() {
         dialogRef.current?.close();
+    }
+
+    async function handleDelete() {
+        await deleteCard(card.id);
+        onDeleted(card);
     }
 
     return (
@@ -130,6 +136,12 @@ function EditCardDialog({
                     )}
 
                     <div className={styles.actions}>
+                        <ConfirmDialog
+                            triggerLabel="Eliminar"
+                            title="Eliminar tarjeta"
+                            message={`Se va a eliminar "${card.title}". Esta acción no se puede deshacer.`}
+                            onConfirm={handleDelete}
+                        />
                         <button
                             className={styles.secondaryButton}
                             type="button"

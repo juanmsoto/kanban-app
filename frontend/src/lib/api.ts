@@ -21,6 +21,10 @@ export async function apiFetch<T>(
 
     await throwApiError(response);
 
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
     const data: T = await response.json();
     return data;
 }
