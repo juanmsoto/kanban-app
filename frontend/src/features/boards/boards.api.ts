@@ -64,3 +64,14 @@ export async function createCard(
         body: { title, description: description || undefined },
     });
 }
+
+export async function updateCard(
+    cardId: number,
+    title: string,
+    description: string,
+): Promise<Card> {
+    return apiFetch<Card>(`/cards/${cardId}`, {
+        method: 'PATCH',
+        body: { title, description: description || null },
+    });
+}

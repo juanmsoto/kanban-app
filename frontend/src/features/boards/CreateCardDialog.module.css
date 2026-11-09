@@ -23,6 +23,31 @@
     outline-offset: 2px;
 }
 
+/* La tarjeta entera es el botón que abre la edición (lo usa EditCardDialog). */
+.cardButton {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+}
+
+.cardButton:disabled {
+    cursor: default;
+}
+
+.cardButton:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
 /* Sin display acá: pisaría el estado cerrado del dialog. El flex va en el form. */
 .dialog {
     width: min(100% - 32px, 440px);

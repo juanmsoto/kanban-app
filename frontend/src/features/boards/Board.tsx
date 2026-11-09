@@ -11,6 +11,7 @@ import {
 import CreateColumnForm from './CreateColumnForm';
 import CreateCardDialog from './CreateCardDialog';
 import styles from './Board.module.css';
+import EditCardDialog from './EditCardDialog';
 
 function Board() {
     const { id } = useParams();
@@ -90,6 +91,26 @@ function Board() {
         });
     }
 
+    function handleCardUpdated(updatedCard: Card) {
+        if (board === null) {
+            return;
+        }
+
+        setBoard({
+            ...board,
+            columns: board.columns.map((column) =>
+                column.id === updatedCard.columnId
+                    ? {
+                          ...column,
+                          cards: column.cards.map((card) =>
+                              card.id === updatedCard.id ? updatedCard : card,
+                          ),
+                      }
+                    : column,
+            ),
+        });
+    }
+
     return (
         <main className={styles.page}>
             <Link className={styles.back} to="/boards">
@@ -146,20 +167,32 @@ function Board() {
                                                 className={styles.card}
                                                 key={card.id}
                                             >
-                                                <span
-                                                    className={styles.cardTitle}
+                                                <EditCardDialog
+                                                    card={card}
+                                                    canEdit={
+                                                        board.role !== 'viewer'
+                                                    }
+                                                    onUpdated={
+                                                        handleCardUpdated
+                                                    }
                                                 >
-                                                    {card.title}
-                                                </span>
-                                                {card.description && (
                                                     <span
                                                         className={
-                                                            styles.cardDescription
+                                                            styles.cardTitle
                                                         }
                                                     >
-                                                        {card.description}
+                                                        {card.title}
                                                     </span>
-                                                )}
+                                                    {card.description && (
+                                                        <span
+                                                            className={
+                                                                styles.cardDescription
+                                                            }
+                                                        >
+                                                            {card.description}
+                                                        </span>
+                                                    )}
+                                                </EditCardDialog>
                                             </li>
                                         ))}
                                     </ul>
