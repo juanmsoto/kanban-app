@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router';
-import { useSession } from '../lib/session';
+import { useSession } from '../../context/session';
 import styles from './AppLayout.module.css';
 
 function AppLayout() {

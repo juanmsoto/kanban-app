@@ -45,20 +45,27 @@ Si aparece una herramienta que no está en este mapa, frená, preguntá el nivel
 **Lo escribe Juan:** lógica de negocio, decisiones de arquitectura, esquema de datos en Drizzle, queries, auth y permisos, validación, la integración entre partes, y todo en herramientas de nivel 1 (porque escribirlo es como se aprende).
 **Delegado por completo (desde 2026-11-01, pedido de Juan):** el diseño de las pantallas del frontend: estructura del JSX/HTML (títulos, secciones, formularios, textos), componentes de presentación (los que solo reciben props y dibujan) y todo el CSS. Juan no quiere elaborar ese contenido; quiere aprender a conectar React con la API. Estilos con CSS Modules (decidido el 2026-11-01): Claude escribe directamente los archivos `.css`; el código TSX de los componentes lo pasa en el chat y Juan lo ubica y lo conecta (no se crean archivos `.tsx` de componentes sin que él los ubique). Reparto en el frontend: Claude diseña y escribe el marcado y los estilos, dejando los puntos de conexión claros (props, handlers y estado que Juan completa); Juan escribe el estado (`useState`), los efectos, los `fetch`, la auth del cliente, el manejo de carga y error, el enrutado protegido y la integración entre piezas. Claude explica brevemente qué hay en lo que escribe, pero no pide que Juan lo tipee. Lo escrito hasta el 2026-11-01 (componentes de relleno, `useState`, props, rutas) sigue siendo de Juan.
 
-**Estructura de `frontend/src/` (definitiva desde el 2026-11-03; Juan eligió agrupar por funcionalidad; no cambiarla sin discutirlo con él, el razonamiento está en `PROGRESO.md`, sección Decisiones):**
+**Estructura de `frontend/src/` (reorganizada el 2026-11-09 a pedido de Juan, partiendo del modelo que investigó; sigue agrupando por funcionalidad, y cada funcionalidad se divide por responsabilidad; no cambiarla sin discutirlo con él):**
 
 ```
 frontend/src/
 ├── main.tsx, App.tsx, index.css   entrada, rutas y tokens globales
 ├── pages/         pantallas que no son de ninguna funcionalidad (Home, NotFound)
-├── components/    piezas compartidas, visuales o de ruteo (ProtectedRoute, PublicRoute; luego botones, modales), cada una con su .module.css al lado
-├── lib/           código compartido que no es visual (errors.ts, types.ts, token.ts; luego session.ts + SessionProvider.tsx, decidido el 2026-11-04, y la función de fetch con token)
-└── features/<nombre>/   todo lo de una funcionalidad: <nombre>.api.ts (los fetch), sus pantallas, sus componentes y su CSS
-    ├── auth/      auth.api.ts, Login.tsx, Register.tsx, Auth.module.css
-    └── boards/    (tableros, columnas, tarjetas) Boards.tsx, Board.tsx; luego boards.api.ts, etc.
+├── components/    piezas visuales compartidas, cada una con su .module.css al lado
+│   ├── ui/        reutilizables (ConfirmDialog)
+│   └── layout/    estructura general (AppLayout)
+├── routes/        guardias de ruteo (ProtectedRoute, PublicRoute)
+├── context/       estado global con React Context (session.ts, SessionProvider.tsx)
+├── services/      comunicación con la API y lo que la rodea (api.ts, errors.ts, token.ts, types.ts)
+└── features/<nombre>/   todo lo de una funcionalidad
+    ├── pages/       sus pantallas completas, con su CSS
+    ├── components/  sus piezas (formularios, cuadros), con su CSS
+    └── services/    sus fetch (<nombre>.api.ts)
 ```
 
-Reglas: (1) **dónde va un archivo nuevo:** ¿lo usan o lo van a usar varias funcionalidades? Si no es visual, a `lib/`; si es visual o de ruteo, a `components/`. ¿Es de una funcionalidad? A `features/<nombre>/`. ¿Es una pantalla sin dueño? A `pages/`. (2) **dirección de las dependencias:** `lib/` no importa nada del proyecto; una funcionalidad importa solo de `lib/`, de `components/` y de sí misma; **una funcionalidad nunca importa de otra** (si dos la necesitan, sube a `lib/`); `App.tsx` y `pages/` pueden importar de todo. (3) **tipos:** un tipo que usa una sola pieza queda junto a ella; si lo usan varias funcionalidades, va a `lib/types.ts`. (4) **nombres:** `<funcionalidad>.api.ts` (como `auth.service.ts` en el backend), componentes en PascalCase con su `.module.css` al lado; una funcionalidad empieza plana y recién se subdivide en `components/` o `hooks/` si pasa de unos 8 archivos. (5) imports relativos, sin alias `@/` (se reconsidera si aparecen rutas con más de dos `../`). (6) **cada vez que se pasa o se pide crear código, decir la ruta exacta del archivo (carpeta y nombre); si hace falta una carpeta nueva, proponerla antes como opción.** Descartadas: agrupar por tipo (repartía una funcionalidad en cinco carpetas) y el alias `@/`.
+Solo se crean las carpetas que se usan: `hooks/`, `utils/` y `assets/` aparecen recién cuando haya algo que poner adentro.
+
+Reglas: (1) **dónde va un archivo nuevo:** ¿es de una funcionalidad? A `features/<nombre>/`, en `pages/` si es una pantalla completa, en `components/` si es una pieza, en `services/` si habla con la API. ¿Lo usan varias funcionalidades? Si es visual, a `components/ui/` o `components/layout/`; si es de ruteo, a `routes/`; si es estado global, a `context/`; si habla con la API, a `services/`. ¿Es una pantalla sin dueño? A `pages/`. (2) **dirección de las dependencias:** `services/` no importa nada del proyecto fuera de sí misma; una funcionalidad importa solo de `services/`, `context/`, `components/` y de sí misma; **una funcionalidad nunca importa de otra** (si dos la necesitan, sube a la carpeta compartida que corresponda); `App.tsx` y `pages/` pueden importar de todo. (3) **tipos:** un tipo que usa una sola pieza queda junto a ella; si lo usan varias funcionalidades, va a `services/types.ts`. (4) **nombres:** `<funcionalidad>.api.ts` (como `auth.service.ts` en el backend), componentes en PascalCase con su `.module.css` al lado. (5) imports relativos, sin alias `@/` (hay rutas con tres `../`; Juan eligió mantenerlas el 2026-11-09). (6) **cada vez que se pasa o se pide crear código, decir la ruta exacta del archivo (carpeta y nombre); si hace falta una carpeta nueva, proponerla antes como opción.** Descartadas: agrupar por tipo (repartía una funcionalidad en cinco carpetas) y el alias `@/`.
 
 Lo repetitivo que escribís siempre se explica: Juan tiene que entender qué hay en su propio proyecto.
 

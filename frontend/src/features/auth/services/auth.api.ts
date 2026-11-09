@@ -1,5 +1,5 @@
-import { apiFetch } from '../../lib/api';
-import type { User } from '../../lib/types';
+import { apiFetch } from '../../../services/api';
+import type { User } from '../../../services/types';
 
 type LoginResult = {
     token: string;

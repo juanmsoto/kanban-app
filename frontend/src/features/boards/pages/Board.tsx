@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router';
-import { ApiError } from '../../lib/errors';
-import { useSession } from '../../lib/session';
+import { ApiError } from '../../../services/errors';
+import { useSession } from '../../../context/session';
 import {
     getBoard,
     type BoardDetail,
     type Card,
     type Column,
-} from './boards.api';
-import CreateColumnForm from './CreateColumnForm';
-import CreateCardDialog from './CreateCardDialog';
+} from '../services/boards.api';
+import CreateColumnForm from '../components/CreateColumnForm';
+import CreateCardDialog from '../components/CreateCardDialog';
 import styles from './Board.module.css';
-import EditCardDialog from './EditCardDialog';
-import EditColumnDialog from './EditColumnDialog';
-import EditBoardDialog from './EditBoardDialog';
+import EditCardDialog from '../components/EditCardDialog';
+import EditColumnDialog from '../components/EditColumnDialog';
+import EditBoardDialog from '../components/EditBoardDialog';
 
 function Board() {
     const { id } = useParams();

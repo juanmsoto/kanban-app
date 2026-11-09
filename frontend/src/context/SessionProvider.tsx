@@ -1,9 +1,9 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { ApiError } from './errors';
-import { apiFetch } from './api';
-import type { User } from './types';
+import { ApiError } from '../services/errors';
+import { apiFetch } from '../services/api';
+import type { User } from '../services/types';
 import { SessionContext, type Session } from './session';
-import { clearToken, getToken, saveToken } from './token';
+import { clearToken, getToken, saveToken } from '../services/token';
 
 type MeResult = {
     user: User;

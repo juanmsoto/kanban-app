@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { User } from './types';
+import type { User } from '../services/types';
 
 export type Session =
     | { status: 'checking' }

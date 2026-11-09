@@ -1,23 +1,27 @@
-import { useRef, useState, type SubmitEvent } from 'react';
-import { deleteBoard, updateBoard, type Board } from './boards.api';
-import { useSession } from '../../lib/session';
-import { ApiError } from '../../lib/errors';
-import ConfirmDialog from '../../components/ConfirmDialog';
+import { useRef, useState, type ReactNode, type SubmitEvent } from 'react';
+import { deleteCard, updateCard, type Card } from '../services/boards.api';
+import { useSession } from '../../../context/session';
+import { ApiError } from '../../../services/errors';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import styles from './CreateCardDialog.module.css';
 
-type EditBoardDialogProps = {
-    board: Board;
-    onUpdated: (board: Board) => void;
-    onDeleted: () => void;
+type EditCardDialogProps = {
+    card: Card;
+    canEdit: boolean;
+    onUpdated: (card: Card) => void;
+    onDeleted: (card: Card) => void;
+    children: ReactNode;
 };
 
-function EditBoardDialog({
-    board,
+function EditCardDialog({
+    card,
+    canEdit,
     onUpdated,
     onDeleted,
-}: EditBoardDialogProps) {
+    children,
+}: EditCardDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
-    const [name, setName] = useState('');
+    const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [error, setError] = useState('');
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>(
@@ -33,9 +37,9 @@ function EditBoardDialog({
         setIsLoading(true);
 
         try {
-            const updatedBoard = await updateBoard(board.id, name, description);
+            const updatedCard = await updateCard(card.id, title, description);
 
-            onUpdated(updatedBoard);
+            onUpdated(updatedCard);
             handleClose();
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
@@ -56,8 +60,8 @@ function EditBoardDialog({
     }
 
     function handleOpen() {
-        setName(board.name);
-        setDescription(board.description ?? '');
+        setTitle(card.title);
+        setDescription(card.description ?? '');
         setError('');
         setFieldErrors({});
         dialogRef.current?.showModal();
@@ -68,42 +72,42 @@ function EditBoardDialog({
     }
 
     async function handleDelete() {
-        await deleteBoard(board.id);
-        onDeleted();
+        await deleteCard(card.id);
+        onDeleted(card);
     }
 
     return (
         <>
             <button
-                className={styles.iconButton}
+                className={styles.cardButton}
                 type="button"
                 onClick={handleOpen}
-                aria-label={`Editar tablero ${board.name}`}
+                disabled={!canEdit}
             >
-                ✎
+                {children}
             </button>
 
             <dialog
                 className={styles.dialog}
                 ref={dialogRef}
-                aria-label={`Editar tablero ${board.name}`}
+                aria-label={`Editar tarjeta ${card.title}`}
             >
                 <form className={styles.form} onSubmit={handleSubmit}>
-                    <h2 className={styles.title}>Editar tablero</h2>
+                    <h2 className={styles.title}>Editar tarjeta</h2>
 
                     <label className={styles.field}>
-                        <span className={styles.label}>Nombre</span>
+                        <span className={styles.label}>Título</span>
                         <input
                             className={styles.input}
                             type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            aria-invalid={Boolean(fieldErrors.name)}
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            aria-invalid={Boolean(fieldErrors.title)}
                             required
                         />
-                        {fieldErrors.name && (
+                        {fieldErrors.title && (
                             <span className={styles.fieldError}>
-                                {fieldErrors.name[0]}
+                                {fieldErrors.title[0]}
                             </span>
                         )}
                     </label>
@@ -132,14 +136,12 @@ function EditBoardDialog({
                     )}
 
                     <div className={styles.actions}>
-                        {board.role === 'owner' && (
-                            <ConfirmDialog
-                                triggerLabel="Eliminar"
-                                title="Eliminar tablero"
-                                message={`Se va a eliminar "${board.name}" con todas sus columnas y tarjetas. Esta acción no se puede deshacer.`}
-                                onConfirm={handleDelete}
-                            />
-                        )}
+                        <ConfirmDialog
+                            triggerLabel="Eliminar"
+                            title="Eliminar tarjeta"
+                            message={`Se va a eliminar "${card.title}". Esta acción no se puede deshacer.`}
+                            onConfirm={handleDelete}
+                        />
                         <button
                             className={styles.secondaryButton}
                             type="button"
@@ -161,4 +163,4 @@ function EditBoardDialog({
     );
 }
 
-export default EditBoardDialog;
+export default EditCardDialog;

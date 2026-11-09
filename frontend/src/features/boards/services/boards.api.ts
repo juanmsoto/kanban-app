@@ -1,4 +1,4 @@
-import { apiFetch } from '../../lib/api';
+import { apiFetch } from '../../../services/api';
 
 export type Board = {
     id: number;

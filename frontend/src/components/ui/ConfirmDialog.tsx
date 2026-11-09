@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { useSession } from '../lib/session';
-import { ApiError } from '../lib/errors';
+import { useSession } from '../../context/session';
+import { ApiError } from '../../services/errors';
 import styles from './ConfirmDialog.module.css';
 
 type ConfirmDialogProps = {

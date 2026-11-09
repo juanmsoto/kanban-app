@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route } from 'react-router';
 import Home from './pages/Home';
-import Login from './features/auth/Login';
-import Register from './features/auth/Register';
-import Boards from './features/boards/Boards';
-import Board from './features/boards/Board';
+import Login from './features/auth/pages/Login';
+import Register from './features/auth/pages/Register';
+import Boards from './features/boards/pages/Boards';
+import Board from './features/boards/pages/Board';
 import NotFound from './pages/NotFound';
-import ProtectedRoute from './components/ProtectedRoute';
-import PublicRoute from './components/PublicRoute';
-import AppLayout from './components/AppLayout';
+import ProtectedRoute from './routes/ProtectedRoute';
+import PublicRoute from './routes/PublicRoute';
+import AppLayout from './components/layout/AppLayout';
 
 function App() {
     return (

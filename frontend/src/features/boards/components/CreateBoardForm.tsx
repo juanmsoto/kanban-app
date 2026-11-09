@@ -1,16 +1,16 @@
 import { useState, type SubmitEvent } from 'react';
-import { createColumn, type Column } from './boards.api';
-import { useSession } from '../../lib/session';
-import { ApiError } from '../../lib/errors';
-import styles from './CreateColumnForm.module.css';
+import { ApiError } from '../../../services/errors';
+import { useSession } from '../../../context/session';
+import { createBoard, type Board } from '../services/boards.api';
+import styles from './CreateBoardForm.module.css';
 
-type CreateColumnFormProps = {
-    boardId: number;
-    onCreated: (column: Omit<Column, 'cards'>) => void;
+type CreateBoardFormProps = {
+    onCreated: (board: Board) => void;
 };
 
-function CreateColumnForm({ boardId, onCreated }: CreateColumnFormProps) {
-    const [title, setTitle] = useState('');
+function CreateBoardForm({ onCreated }: CreateBoardFormProps) {
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
     const [error, setError] = useState('');
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>(
         {},
@@ -25,9 +25,10 @@ function CreateColumnForm({ boardId, onCreated }: CreateColumnFormProps) {
         setIsLoading(true);
 
         try {
-            const column = await createColumn(boardId, title);
-            onCreated(column);
-            setTitle('');
+            const board = await createBoard(name, description);
+            onCreated(board);
+            setName('');
+            setDescription('');
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
                 endSession();
@@ -49,19 +50,34 @@ function CreateColumnForm({ boardId, onCreated }: CreateColumnFormProps) {
     return (
         <form className={styles.form} onSubmit={handleSubmit}>
             <label className={styles.field}>
-                <span className={styles.label}>Nueva columna</span>
+                <span className={styles.label}>Nombre</span>
                 <input
                     className={styles.input}
                     type="text"
-                    placeholder="Nueva columna"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.title)}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    aria-invalid={Boolean(fieldErrors.name)}
                     required
                 />
-                {fieldErrors.title && (
+                {fieldErrors.name && (
                     <span className={styles.fieldError}>
-                        {fieldErrors.title[0]}
+                        {fieldErrors.name[0]}
+                    </span>
+                )}
+            </label>
+
+            <label className={styles.field}>
+                <span className={styles.label}>Descripción (opcional)</span>
+                <input
+                    className={styles.input}
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    aria-invalid={Boolean(fieldErrors.description)}
+                />
+                {fieldErrors.description && (
+                    <span className={styles.fieldError}>
+                        {fieldErrors.description[0]}
                     </span>
                 )}
             </label>
@@ -77,10 +93,10 @@ function CreateColumnForm({ boardId, onCreated }: CreateColumnFormProps) {
                 type="submit"
                 disabled={isLoading}
             >
-                {isLoading ? 'Creando...' : 'Agregar columna'}
+                {isLoading ? 'Creando...' : 'Crear tablero'}
             </button>
         </form>
     );
 }
 
-export default CreateColumnForm;
+export default CreateBoardForm;

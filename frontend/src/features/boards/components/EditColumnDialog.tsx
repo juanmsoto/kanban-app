@@ -1,8 +1,8 @@
 import { useRef, useState, type SubmitEvent } from 'react';
-import { deleteColumn, updateColumn, type Column } from './boards.api';
-import ConfirmDialog from '../../components/ConfirmDialog';
-import { useSession } from '../../lib/session';
-import { ApiError } from '../../lib/errors';
+import { deleteColumn, updateColumn, type Column } from '../services/boards.api';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import { useSession } from '../../../context/session';
+import { ApiError } from '../../../services/errors';
 import styles from './CreateCardDialog.module.css';
 
 type EditColumnDialogProps = {

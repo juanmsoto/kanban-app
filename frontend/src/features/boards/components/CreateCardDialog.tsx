@@ -1,7 +1,7 @@
 import { useRef, useState, type SubmitEvent } from 'react';
-import { useSession } from '../../lib/session';
-import { ApiError } from '../../lib/errors';
-import { createCard, type Card } from './boards.api';
+import { useSession } from '../../../context/session';
+import { ApiError } from '../../../services/errors';
+import { createCard, type Card } from '../services/boards.api';
 import styles from './CreateCardDialog.module.css';
 
 type CreateCardDialogProps = {

@@ -1,12 +1,11 @@
 import { useState, type SubmitEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import styles from './Auth.module.css';
-import { login, register } from './auth.api';
-import { ApiError } from '../../lib/errors';
-import { useSession } from '../../lib/session';
+import { login } from '../services/auth.api';
+import { useSession } from '../../../context/session';
+import { ApiError } from '../../../services/errors';
 
-function Register() {
-    const [name, setName] = useState('');
+function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -24,7 +23,9 @@ function Register() {
         setIsLoading(true);
 
         try {
-            await register(name, email, password);
+            const data = await login(email, password);
+            startSession(data.token, data.user);
+            navigate('/boards');
         } catch (err) {
             if (err instanceof ApiError && err.fields) {
                 setFieldErrors(err.fields);
@@ -37,45 +38,19 @@ function Register() {
             setIsLoading(false);
             return;
         }
-
-        try {
-            const data = await login(email, password);
-            startSession(data.token, data.user);
-            navigate('/boards');
-        } catch {
-            navigate('/login');
-        }
     }
 
     return (
         <main className={styles.page}>
             <div className={styles.card}>
                 <div>
-                    <h1 className={styles.title}>Crear cuenta</h1>
+                    <h1 className={styles.title}>Iniciar sesión</h1>
                     <p className={styles.subtitle}>
-                        Registrate para empezar a armar tus tableros.
+                        Entrá para ver tus tableros.
                     </p>
                 </div>
 
                 <form className={styles.form} onSubmit={handleSubmit}>
-                    <label className={styles.field}>
-                        <span className={styles.label}>Nombre</span>
-                        <input
-                            className={styles.input}
-                            type="text"
-                            autoComplete="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            aria-invalid={Boolean(fieldErrors.name)}
-                            required
-                        />
-                        {fieldErrors.name && (
-                            <span className={styles.fieldError}>
-                                {fieldErrors.name[0]}
-                            </span>
-                        )}
-                    </label>
-
                     <label className={styles.field}>
                         <span className={styles.label}>Email</span>
                         <input
@@ -99,7 +74,7 @@ function Register() {
                         <input
                             className={styles.input}
                             type="password"
-                            autoComplete="new-password"
+                            autoComplete="current-password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             aria-invalid={Boolean(fieldErrors.password)}
@@ -123,16 +98,16 @@ function Register() {
                         type="submit"
                         disabled={isLoading}
                     >
-                        {isLoading ? 'Creando cuenta...' : 'Crear cuenta'}
+                        {isLoading ? 'Ingresando...' : 'Iniciar sesión'}
                     </button>
                 </form>
 
                 <p className={styles.footer}>
-                    ¿Ya tenés cuenta? <Link to="/login">Iniciar sesión</Link>
+                    ¿No tenés cuenta? <Link to="/register">Crear cuenta</Link>
                 </p>
             </div>
         </main>
     );
 }
 
-export default Register;
+export default Login;
