@@ -43,6 +43,14 @@
     outline-offset: 2px;
 }
 
+/* Título del tablero centrado, con su botón de editar al lado. */
+.titleRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
 .title {
     text-align: center;
     font-size: clamp(1.75rem, 3vw, 2.5rem);

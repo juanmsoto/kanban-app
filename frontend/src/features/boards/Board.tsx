@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useNavigate } from 'react-router';
 import { ApiError } from '../../lib/errors';
 import { useSession } from '../../lib/session';
 import {
@@ -13,9 +13,11 @@ import CreateCardDialog from './CreateCardDialog';
 import styles from './Board.module.css';
 import EditCardDialog from './EditCardDialog';
 import EditColumnDialog from './EditColumnDialog';
+import EditBoardDialog from './EditBoardDialog';
 
 function Board() {
     const { id } = useParams();
+    const navigate = useNavigate();
     const [board, setBoard] = useState<BoardDetail | null>(null);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -65,6 +67,18 @@ function Board() {
             ignore = true;
         };
     }, [id, endSession]);
+
+    function handleBoardUpdated(updatedBoard: Omit<BoardDetail, 'columns'>) {
+        if (board === null) {
+            return;
+        }
+
+        setBoard({ ...board, ...updatedBoard });
+    }
+
+    function handleBoardDeleted() {
+        navigate('/boards', { replace: true });
+    }
 
     function handleColumnCreated(column: Omit<Column, 'cards'>) {
         if (board === null) {
@@ -174,12 +188,14 @@ function Board() {
 
             {board && !isLoading && (
                 <>
-                    <div>
+                    <div className={styles.titleRow}>
                         <h1 className={styles.title}>{board.name}</h1>
-                        {board.description && (
-                            <p className={styles.description}>
-                                {board.description}
-                            </p>
+                        {board.role !== 'viewer' && (
+                            <EditBoardDialog
+                                board={board}
+                                onUpdated={handleBoardUpdated}
+                                onDeleted={handleBoardDeleted}
+                            />
                         )}
                     </div>
 

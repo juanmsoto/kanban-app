@@ -44,6 +44,23 @@ export async function getBoard(id: string): Promise<BoardDetail> {
     return apiFetch<BoardDetail>(`/boards/${id}`);
 }
 
+export async function updateBoard(
+    boardId: number,
+    name: string,
+    description: string,
+): Promise<Board> {
+    return apiFetch<Board>(`/boards/${boardId}`, {
+        method: 'PATCH',
+        body: { name, description: description || null },
+    });
+}
+
+export async function deleteBoard(boardId: number): Promise<void> {
+    return apiFetch<void>(`/boards/${boardId}`, {
+        method: 'DELETE',
+    });
+}
+
 export async function createColumn(
     boardId: number,
     title: string,
