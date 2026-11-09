@@ -1,0 +1,53 @@
+/* Barra superior de las pantallas privadas. */
+
+.nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 24px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.brand {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.userName {
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.logout {
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    color: var(--color-text);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 6px 12px;
+}
+
+.logout:hover {
+    background: var(--color-bg);
+}
+
+.logout:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}

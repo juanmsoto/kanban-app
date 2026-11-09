@@ -3,8 +3,16 @@ import { z } from 'zod';
 import { boardRole } from '../../db/schema.js';
 
 export const createBoardSchema = z.object({
-    name: z.string().trim().min(1).max(100),
-    description: z.string().trim().max(500).optional(),
+    name: z
+        .string()
+        .trim()
+        .min(1, 'El nombre es obligatorio')
+        .max(100, 'El nombre no puede superar los 100 caracteres'),
+    description: z
+        .string()
+        .trim()
+        .max(500, 'La descripcion no puede superar los 500 caracteres')
+        .optional(),
 });
 
 export const boardIdParamSchema = z.object({
@@ -12,7 +20,7 @@ export const boardIdParamSchema = z.object({
 });
 
 export const addMemberSchema = z.object({
-    email: z.string().trim().toLowerCase().pipe(z.email()),
+    email: z.string().trim().toLowerCase().pipe(z.email('El email no es valido')),
     role: z.enum(boardRole.enumValues),
 });
 
@@ -27,8 +35,18 @@ export const updateMemberSchema = z.object({
 
 export const updateBoardSchema = z
     .object({
-        name: z.string().trim().min(1).max(100).optional(),
-        description: z.string().trim().max(500).nullable().optional(),
+        name: z
+            .string()
+            .trim()
+            .min(1, 'El nombre es obligatorio')
+            .max(100, 'El nombre no puede superar los 100 caracteres')
+            .optional(),
+        description: z
+            .string()
+            .trim()
+            .max(500, 'La descripcion no puede superar los 500 caracteres')
+            .nullable()
+            .optional(),
     })
     .refine((data) => data.name !== undefined || data.description !== undefined, {
         message: 'Hay que enviar al menos un campo',

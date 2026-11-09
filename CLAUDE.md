@@ -43,7 +43,22 @@ Si aparece una herramienta que no está en este mapa, frená, preguntá el nivel
 ## Reparto del trabajo
 **Lo escribís vos (Claude):** scaffolding y estructura de carpetas, archivos de configuración (tsconfig, vite, drizzle.config, scripts), boilerplate estándar, CRUD repetitivo una vez que Juan escribió el primer ejemplo completo, estilos y UI, tests repetitivos.
 **Lo escribe Juan:** lógica de negocio, decisiones de arquitectura, esquema de datos en Drizzle, queries, auth y permisos, validación, la integración entre partes, y todo en herramientas de nivel 1 (porque escribirlo es como se aprende).
-**Delegado por completo:** ninguna por ahora. Los estilos/UI visual se pueden delegar si Juan lo pide.
+**Delegado por completo (desde 2026-11-01, pedido de Juan):** el diseño de las pantallas del frontend: estructura del JSX/HTML (títulos, secciones, formularios, textos), componentes de presentación (los que solo reciben props y dibujan) y todo el CSS. Juan no quiere elaborar ese contenido; quiere aprender a conectar React con la API. Estilos con CSS Modules (decidido el 2026-11-01): Claude escribe directamente los archivos `.css`; el código TSX de los componentes lo pasa en el chat y Juan lo ubica y lo conecta (no se crean archivos `.tsx` de componentes sin que él los ubique). Reparto en el frontend: Claude diseña y escribe el marcado y los estilos, dejando los puntos de conexión claros (props, handlers y estado que Juan completa); Juan escribe el estado (`useState`), los efectos, los `fetch`, la auth del cliente, el manejo de carga y error, el enrutado protegido y la integración entre piezas. Claude explica brevemente qué hay en lo que escribe, pero no pide que Juan lo tipee. Lo escrito hasta el 2026-11-01 (componentes de relleno, `useState`, props, rutas) sigue siendo de Juan.
+
+**Estructura de `frontend/src/` (definitiva desde el 2026-11-03; Juan eligió agrupar por funcionalidad; no cambiarla sin discutirlo con él, el razonamiento está en `PROGRESO.md`, sección Decisiones):**
+
+```
+frontend/src/
+├── main.tsx, App.tsx, index.css   entrada, rutas y tokens globales
+├── pages/         pantallas que no son de ninguna funcionalidad (Home, NotFound)
+├── components/    piezas compartidas, visuales o de ruteo (ProtectedRoute, PublicRoute; luego botones, modales), cada una con su .module.css al lado
+├── lib/           código compartido que no es visual (errors.ts, types.ts, token.ts; luego session.ts + SessionProvider.tsx, decidido el 2026-11-04, y la función de fetch con token)
+└── features/<nombre>/   todo lo de una funcionalidad: <nombre>.api.ts (los fetch), sus pantallas, sus componentes y su CSS
+    ├── auth/      auth.api.ts, Login.tsx, Register.tsx, Auth.module.css
+    └── boards/    (tableros, columnas, tarjetas) Boards.tsx, Board.tsx; luego boards.api.ts, etc.
+```
+
+Reglas: (1) **dónde va un archivo nuevo:** ¿lo usan o lo van a usar varias funcionalidades? Si no es visual, a `lib/`; si es visual o de ruteo, a `components/`. ¿Es de una funcionalidad? A `features/<nombre>/`. ¿Es una pantalla sin dueño? A `pages/`. (2) **dirección de las dependencias:** `lib/` no importa nada del proyecto; una funcionalidad importa solo de `lib/`, de `components/` y de sí misma; **una funcionalidad nunca importa de otra** (si dos la necesitan, sube a `lib/`); `App.tsx` y `pages/` pueden importar de todo. (3) **tipos:** un tipo que usa una sola pieza queda junto a ella; si lo usan varias funcionalidades, va a `lib/types.ts`. (4) **nombres:** `<funcionalidad>.api.ts` (como `auth.service.ts` en el backend), componentes en PascalCase con su `.module.css` al lado; una funcionalidad empieza plana y recién se subdivide en `components/` o `hooks/` si pasa de unos 8 archivos. (5) imports relativos, sin alias `@/` (se reconsidera si aparecen rutas con más de dos `../`). (6) **cada vez que se pasa o se pide crear código, decir la ruta exacta del archivo (carpeta y nombre); si hace falta una carpeta nueva, proponerla antes como opción.** Descartadas: agrupar por tipo (repartía una funcionalidad en cinco carpetas) y el alias `@/`.
 
 Lo repetitivo que escribís siempre se explica: Juan tiene que entender qué hay en su propio proyecto.
 
@@ -59,6 +74,8 @@ Lo repetitivo que escribís siempre se explica: Juan tiene que entender qué hay
 
 ## Ritmo
 Estricto: un paso chico por vez, con pausa de confirmación al final de cada uno. Se pueden crear juntas las piezas repetitivas que forman una unidad (carpetas + configs). Juan puede flexibilizarlo cuando quiera.
+
+**Piezas que Juan nunca escribió (pedido suyo, 2026-11-04):** cuando le toca escribir algo que no hizo antes (un concepto, una API o un patrón nuevo para él), no alcanza con describirle qué tiene que hacer: hay que mostrarle el código completo de cómo se hace, en su propio bloque y con un desglose línea por línea, y él lo tipea (no se lo crea Claude). Si ya escribió algo igual (por ejemplo, otro `fetch` como `login`), alcanza con la descripción y la referencia a ese archivo.
 
 ## Tono
 Español rioplatense con "vos", informal y directo, sin emojis, sin elogios excesivos: cuando algo está bien se dice en una frase y se sigue.
