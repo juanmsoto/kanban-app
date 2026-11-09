@@ -1,13 +1,120 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { ApiError } from '../../lib/errors';
+import { useSession } from '../../lib/session';
+import { getBoard, type BoardDetail } from './boards.api';
+import styles from './Board.module.css';
 
 function Board() {
     const { id } = useParams();
+    const [board, setBoard] = useState<BoardDetail | null>(null);
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const { endSession } = useSession();
+
+    useEffect(() => {
+        async function loadBoard() {
+            if (id === undefined) {
+                return;
+            }
+
+            setIsLoading(true);
+            setError('');
+
+            try {
+                const data = await getBoard(id);
+                setBoard(data);
+            } catch (err) {
+                if (err instanceof ApiError && err.status === 401) {
+                    endSession();
+                    return;
+                }
+
+                setBoard(null);
+                setError(
+                    err instanceof Error ? err.message : 'Error desconocido',
+                );
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        loadBoard();
+    }, [id, endSession]);
 
     return (
-        <div>
-            <h1>Tablero {id}</h1>
-            <Link to="/boards">Volver</Link>
-        </div>
+        <main className={styles.page}>
+            <Link className={styles.back} to="/boards">
+                Volver a mis tableros
+            </Link>
+
+            {isLoading && <p className={styles.message}>Cargando...</p>}
+
+            {error && (
+                <p className={styles.error} role="alert">
+                    {error}
+                </p>
+            )}
+
+            {board && !isLoading && (
+                <>
+                    <div>
+                        <h1 className={styles.title}>{board.name}</h1>
+                        {board.description && (
+                            <p className={styles.description}>
+                                {board.description}
+                            </p>
+                        )}
+                    </div>
+
+                    {board.columns.length === 0 && (
+                        <p className={styles.message}>
+                            Este tablero todavía no tiene columnas.
+                        </p>
+                    )}
+
+                    <div className={styles.columns}>
+                        {board.columns.map((column) => (
+                            <section className={styles.column} key={column.id}>
+                                <h2 className={styles.columnTitle}>
+                                    {column.title}
+                                </h2>
+
+                                {column.cards.length === 0 ? (
+                                    <p className={styles.emptyColumn}>
+                                        Sin tarjetas
+                                    </p>
+                                ) : (
+                                    <ul className={styles.cards}>
+                                        {column.cards.map((card) => (
+                                            <li
+                                                className={styles.card}
+                                                key={card.id}
+                                            >
+                                                <span
+                                                    className={styles.cardTitle}
+                                                >
+                                                    {card.title}
+                                                </span>
+                                                {card.description && (
+                                                    <span
+                                                        className={
+                                                            styles.cardDescription
+                                                        }
+                                                    >
+                                                        {card.description}
+                                                    </span>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </section>
+                        ))}
+                    </div>
+                </>
+            )}
+        </main>
     );
 }
 
