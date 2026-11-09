@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ApiError } from '../../lib/errors';
 import { useSession } from '../../lib/session';
-import { getBoard, type BoardDetail } from './boards.api';
+import { getBoard, type BoardDetail, type Column } from './boards.api';
+import CreateColumnForm from './CreateColumnForm';
 import styles from './Board.module.css';
 
 function Board() {
@@ -57,6 +58,17 @@ function Board() {
         };
     }, [id, endSession]);
 
+    function handleColumnCreated(column: Omit<Column, 'cards'>) {
+        if (board === null) {
+            return;
+        }
+
+        setBoard({
+            ...board,
+            columns: [...board.columns, { ...column, cards: [] }],
+        });
+    }
+
     return (
         <main className={styles.page}>
             <Link className={styles.back} to="/boards">
@@ -81,6 +93,13 @@ function Board() {
                             </p>
                         )}
                     </div>
+
+                    {board.role !== 'viewer' && (
+                        <CreateColumnForm
+                            boardId={board.id}
+                            onCreated={handleColumnCreated}
+                        />
+                    )}
 
                     {board.columns.length === 0 && (
                         <p className={styles.message}>

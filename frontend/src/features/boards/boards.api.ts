@@ -43,3 +43,13 @@ export async function createBoard(
 export async function getBoard(id: string): Promise<BoardDetail> {
     return apiFetch<BoardDetail>(`/boards/${id}`);
 }
+
+export async function createColumn(
+    boardId: number,
+    title: string,
+): Promise<Omit<Column, 'cards'>> {
+    return apiFetch<Omit<Column, 'cards'>>(`/boards/${boardId}/columns`, {
+        method: 'POST',
+        body: { title },
+    });
+}
