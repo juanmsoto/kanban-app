@@ -12,3 +12,13 @@ export type Board = {
 export async function getBoards(): Promise<Board[]> {
     return apiFetch<Board[]>('/boards');
 }
+
+export async function createBoard(
+    name: string,
+    description: string,
+): Promise<Board> {
+    return apiFetch<Board>('/boards', {
+        method: 'POST',
+        body: { name, description: description || undefined },
+    });
+}
