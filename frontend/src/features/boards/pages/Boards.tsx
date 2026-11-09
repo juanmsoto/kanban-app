@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { ApiError } from '../../lib/errors';
-import { useSession } from '../../lib/session';
-import { getBoards, type Board } from './boards.api';
+import { ApiError } from '../../../services/errors';
+import { useSession } from '../../../context/session';
+import { getBoards, type Board } from '../services/boards.api';
 import styles from './Boards.module.css';
+import CreateBoardForm from '../components/CreateBoardForm';
 
 const ROLE_LABELS: Record<Board['role'], string> = {
     owner: 'Propietario',
@@ -39,9 +40,15 @@ function Boards() {
         loadBoards();
     }, [endSession]);
 
+    function handleCreated(board: Board) {
+        setBoards([board, ...boards]);
+    }
+
     return (
         <main className={styles.page}>
             <h1 className={styles.title}>Mis tableros</h1>
+
+            <CreateBoardForm onCreated={handleCreated} />
 
             {isLoading && <p className={styles.message}>Cargando...</p>}
 

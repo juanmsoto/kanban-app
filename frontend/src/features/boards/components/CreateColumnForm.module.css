@@ -1,0 +1,100 @@
+/* Barra de una línea para crear una columna: va entre el título y las columnas. */
+
+.form {
+    align-self: center;
+    width: min(100%, 420px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+/* El texto sigue existiendo para lectores de pantalla, pero no ocupa lugar. */
+.label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.input {
+    font: inherit;
+    font-size: 0.875rem;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 7px 12px;
+}
+
+.input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+
+.input[aria-invalid='true'] {
+    border-color: #d92d20;
+}
+
+.fieldError {
+    font-size: 0.8125rem;
+    color: #b42318;
+}
+
+.error {
+    grid-column: 1 / -1;
+    font-size: 0.875rem;
+    color: #b42318;
+    background: #fef3f2;
+    border: 1px solid #fecdca;
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .input[aria-invalid='true'] {
+        border-color: #f97066;
+    }
+
+    .fieldError {
+        color: #fda29b;
+    }
+
+    .error {
+        color: #fda29b;
+        background: #2a1514;
+        border-color: #5c2420;
+    }
+}
+
+.button {
+    align-self: start;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 14px;
+}
+
+.button:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+}
+
+.button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

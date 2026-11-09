@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router';
-import { useSession } from '../lib/session';
+import { useSession } from '../context/session';
 
 function ProtectedRoute() {
     const { session } = useSession();

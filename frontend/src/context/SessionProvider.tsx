@@ -1,8 +1,9 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { throwApiError, ApiError } from './errors';
-import type { User } from './types';
+import { ApiError } from '../services/errors';
+import { apiFetch } from '../services/api';
+import type { User } from '../services/types';
 import { SessionContext, type Session } from './session';
-import { clearToken, getToken, saveToken } from './token';
+import { clearToken, getToken, saveToken } from '../services/token';
 
 type MeResult = {
     user: User;
@@ -12,14 +13,8 @@ type SessionProviderProps = {
     children: ReactNode;
 };
 
-async function fetchMe(token: string): Promise<User> {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-    });
-
-    await throwApiError(response);
-
-    const data: MeResult = await response.json();
+async function fetchMe(): Promise<User> {
+    const data = await apiFetch<MeResult>('/auth/me');
     return data.user;
 }
 
@@ -37,7 +32,7 @@ function SessionProvider({ children }: SessionProviderProps) {
             }
 
             try {
-                const user = await fetchMe(token);
+                const user = await fetchMe();
                 setSession({ status: 'loggedIn', user });
             } catch (err) {
                 if (err instanceof ApiError && err.status === 401) {

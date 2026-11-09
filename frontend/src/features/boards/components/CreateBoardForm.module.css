@@ -1,0 +1,102 @@
+/* Formulario para crear un tablero, arriba de la lista. */
+
+.form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+@media (max-width: 600px) {
+    .form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.label {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.input {
+    font: inherit;
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+
+.input[aria-invalid='true'] {
+    border-color: #d92d20;
+}
+
+.fieldError {
+    font-size: 0.8125rem;
+    color: #b42318;
+}
+
+.error {
+    grid-column: 1 / -1;
+    font-size: 0.875rem;
+    color: #b42318;
+    background: #fef3f2;
+    border: 1px solid #fecdca;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .input[aria-invalid='true'] {
+        border-color: #f97066;
+    }
+
+    .fieldError {
+        color: #fda29b;
+    }
+
+    .error {
+        color: #fda29b;
+        background: #2a1514;
+        border-color: #5c2420;
+    }
+}
+
+.button {
+    grid-column: 1 / -1;
+    justify-self: start;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 16px;
+}
+
+.button:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+}
+
+.button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
