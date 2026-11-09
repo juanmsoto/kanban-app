@@ -12,6 +12,7 @@ import CreateColumnForm from './CreateColumnForm';
 import CreateCardDialog from './CreateCardDialog';
 import styles from './Board.module.css';
 import EditCardDialog from './EditCardDialog';
+import EditColumnDialog from './EditColumnDialog';
 
 function Board() {
     const { id } = useParams();
@@ -73,6 +74,32 @@ function Board() {
         setBoard({
             ...board,
             columns: [...board.columns, { ...column, cards: [] }],
+        });
+    }
+
+    function handleColumnUpdated(updatedColumn: Omit<Column, 'cards'>) {
+        if (board === null) {
+            return;
+        }
+
+        setBoard({
+            ...board,
+            columns: board.columns.map((column) =>
+                column.id === updatedColumn.id
+                    ? { ...column, title: updatedColumn.title }
+                    : column,
+            ),
+        });
+    }
+
+    function handleColumnDeleted(columnId: number) {
+        if (board === null) {
+            return;
+        }
+
+        setBoard({
+            ...board,
+            columns: board.columns.filter((column) => column.id !== columnId),
         });
     }
 
@@ -172,9 +199,18 @@ function Board() {
                     <div className={styles.columns}>
                         {board.columns.map((column) => (
                             <section className={styles.column} key={column.id}>
-                                <h2 className={styles.columnTitle}>
-                                    {column.title}
-                                </h2>
+                                <div className={styles.columnHeader}>
+                                    <h2 className={styles.columnTitle}>
+                                        {column.title}
+                                    </h2>
+                                    {board.role !== 'viewer' && (
+                                        <EditColumnDialog
+                                            column={column}
+                                            onUpdated={handleColumnUpdated}
+                                            onDeleted={handleColumnDeleted}
+                                        />
+                                    )}
+                                </div>
 
                                 {column.cards.length === 0 ? (
                                     <p className={styles.emptyColumn}>

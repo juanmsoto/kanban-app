@@ -23,6 +23,30 @@
     outline-offset: 2px;
 }
 
+/* Botón chico de editar, sin texto visible (lo usa EditColumnDialog). */
+.iconButton {
+    flex: none;
+    font: inherit;
+    font-size: 0.9375rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--color-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 5px 7px;
+}
+
+.iconButton:hover {
+    color: var(--color-primary);
+    border-color: var(--color-border);
+}
+
+.iconButton:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
 /* La tarjeta entera es el botón que abre la edición (lo usa EditCardDialog). */
 .cardButton {
     width: 100%;

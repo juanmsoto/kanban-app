@@ -54,6 +54,22 @@ export async function createColumn(
     });
 }
 
+export async function updateColumn(
+    columnId: number,
+    title: string,
+): Promise<Omit<Column, 'cards'>> {
+    return apiFetch<Omit<Column, 'cards'>>(`/columns/${columnId}`, {
+        method: 'PATCH',
+        body: { title },
+    });
+}
+
+export async function deleteColumn(columnId: number): Promise<void> {
+    return apiFetch<void>(`/columns/${columnId}`, {
+        method: 'DELETE',
+    });
+}
+
 export async function createCard(
     columnId: number,
     title: string,

@@ -133,6 +133,14 @@
     --accent: #0ea5e9;
 }
 
+/* Título de la columna a la izquierda y su botón de editar a la derecha. */
+.columnHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
 .columnTitle {
     display: flex;
     align-items: center;
