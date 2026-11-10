@@ -34,6 +34,7 @@ Calibrado el 2026-10-05 leyendo su proyecto previo `/Users/juansotocano/Document
 | Vite | 1 - No lo conoce | - | Idem (el scaffolding lo creo yo, explicado) |
 | Drizzle (ORM / migraciones) | 1 - No lo conoce | Usó SQL a mano y creó tablas con `psql` | Idem. Migraciones: concepto nuevo |
 | Consumo de APIs desde un frontend | 1 - No lo conoce | - | Idem (falta CORS, estados de carga/error, auth en el cliente) |
+| `@dnd-kit/react` (arrastrar y soltar) | 1 - No lo conoce | Nunca la usó (dicho por Juan el 2026-11-09, al elegirla en el Bloque 7) | Modo profesor estricto: explico desde cero y él tipea. Versión 0.x: verificar la API en los tipos instalados antes de enseñarla |
 | React Native (futuro) | por preguntar | - | Preguntar el nivel antes de tocarlo |
 
 **Qué aprendió a las malas en ventas-app (usarlo para anticipar):** orden de los `import` en ESM vs `dotenv.config()`; `res.redirect` pisa `res.status`; `catch` sin `throw` miente al usuario; consultas sin `ORDER BY` devuelven orden no garantizado (relevante para el orden de las tarjetas); `exclude` en tsconfig borra el default de `dist`; `NODE_ENV=production` saltea devDependencies. Aprendió mejor con ejemplos que corren (mini apps, mensajes numerados) y descubriendo el hueco por sí mismo con una pregunta abierta.

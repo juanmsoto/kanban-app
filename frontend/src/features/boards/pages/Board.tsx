@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import styles from './Board.module.css';
 import { Link, useParams, useNavigate } from 'react-router';
 import { ApiError } from '../../../services/errors';
 import { useSession } from '../../../context/session';
@@ -10,10 +11,13 @@ import {
 } from '../services/boards.api';
 import CreateColumnForm from '../components/CreateColumnForm';
 import CreateCardDialog from '../components/CreateCardDialog';
-import styles from './Board.module.css';
 import EditCardDialog from '../components/EditCardDialog';
 import EditColumnDialog from '../components/EditColumnDialog';
 import EditBoardDialog from '../components/EditBoardDialog';
+
+import { DragDropProvider } from '@dnd-kit/react';
+import { isSortable } from '@dnd-kit/react/sortable';
+import SortableCard from '../components/SortableCard';
 
 function Board() {
     const { id } = useParams();
@@ -212,76 +216,113 @@ function Board() {
                         </p>
                     )}
 
-                    <div className={styles.columns}>
-                        {board.columns.map((column) => (
-                            <section className={styles.column} key={column.id}>
-                                <div className={styles.columnHeader}>
-                                    <h2 className={styles.columnTitle}>
-                                        {column.title}
-                                    </h2>
-                                    {board.role !== 'viewer' && (
-                                        <EditColumnDialog
-                                            column={column}
-                                            onUpdated={handleColumnUpdated}
-                                            onDeleted={handleColumnDeleted}
-                                        />
-                                    )}
-                                </div>
+                    <DragDropProvider
+                        onDragEnd={(event) => {
+                            if (event.canceled) {
+                                return;
+                            }
 
-                                {column.cards.length === 0 ? (
-                                    <p className={styles.emptyColumn}>
-                                        Sin tarjetas
-                                    </p>
-                                ) : (
-                                    <ul className={styles.cards}>
-                                        {column.cards.map((card) => (
-                                            <li
-                                                className={styles.card}
-                                                key={card.id}
-                                            >
-                                                <EditCardDialog
-                                                    card={card}
-                                                    canEdit={
+                            const { source } = event.operation;
+
+                            if (isSortable(source)) {
+                                console.log({
+                                    cardId: source.id,
+                                    desde: {
+                                        columna: source.initialGroup,
+                                        posicion: source.initialIndex,
+                                    },
+                                    hasta: {
+                                        columna: source.group,
+                                        posicion: source.index,
+                                    },
+                                });
+                            }
+                        }}
+                    >
+                        <div className={styles.columns}>
+                            {board.columns.map((column) => (
+                                <section
+                                    className={styles.column}
+                                    key={column.id}
+                                >
+                                    <div className={styles.columnHeader}>
+                                        <h2 className={styles.columnTitle}>
+                                            {column.title}
+                                        </h2>
+                                        {board.role !== 'viewer' && (
+                                            <EditColumnDialog
+                                                column={column}
+                                                onUpdated={handleColumnUpdated}
+                                                onDeleted={handleColumnDeleted}
+                                            />
+                                        )}
+                                    </div>
+
+                                    {column.cards.length === 0 ? (
+                                        <p className={styles.emptyColumn}>
+                                            Sin tarjetas
+                                        </p>
+                                    ) : (
+                                        <ul className={styles.cards}>
+                                            {column.cards.map((card, index) => (
+                                                <SortableCard
+                                                    key={card.id}
+                                                    id={card.id}
+                                                    index={index}
+                                                    columnId={column.id}
+                                                    title={card.title}
+                                                    canDrag={
                                                         board.role !== 'viewer'
                                                     }
-                                                    onUpdated={
-                                                        handleCardUpdated
-                                                    }
-                                                    onDeleted={
-                                                        handleCardDeleted
-                                                    }
+                                                    className={styles.card}
                                                 >
-                                                    <span
-                                                        className={
-                                                            styles.cardTitle
+                                                    <EditCardDialog
+                                                        card={card}
+                                                        canEdit={
+                                                            board.role !==
+                                                            'viewer'
+                                                        }
+                                                        onUpdated={
+                                                            handleCardUpdated
+                                                        }
+                                                        onDeleted={
+                                                            handleCardDeleted
                                                         }
                                                     >
-                                                        {card.title}
-                                                    </span>
-                                                    {card.description && (
                                                         <span
                                                             className={
-                                                                styles.cardDescription
+                                                                styles.cardTitle
                                                             }
                                                         >
-                                                            {card.description}
+                                                            {card.title}
                                                         </span>
-                                                    )}
-                                                </EditCardDialog>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                                {board.role !== 'viewer' && (
-                                    <CreateCardDialog
-                                        columnId={column.id}
-                                        columnTitle={column.title}
-                                        onCreated={handleCardCreated}
-                                    />
-                                )}
-                            </section>
-                        ))}
-                    </div>
+                                                        {card.description && (
+                                                            <span
+                                                                className={
+                                                                    styles.cardDescription
+                                                                }
+                                                            >
+                                                                {
+                                                                    card.description
+                                                                }
+                                                            </span>
+                                                        )}
+                                                    </EditCardDialog>
+                                                </SortableCard>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    {board.role !== 'viewer' && (
+                                        <CreateCardDialog
+                                            columnId={column.id}
+                                            columnTitle={column.title}
+                                            onCreated={handleCardCreated}
+                                        />
+                                    )}
+                                </section>
+                            ))}
+                        </div>
+                    </DragDropProvider>
                 </>
             )}
         </main>

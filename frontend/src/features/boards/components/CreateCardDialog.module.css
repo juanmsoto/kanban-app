@@ -49,7 +49,8 @@
 
 /* La tarjeta entera es el botón que abre la edición (lo usa EditCardDialog). */
 .cardButton {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
