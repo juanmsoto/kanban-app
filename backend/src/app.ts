@@ -3,13 +3,14 @@ import cors from 'cors';
 import type { Request, Response } from 'express';
 import { sql } from 'drizzle-orm';
 import { db } from './db/client.js';
+import { corsOrigin } from './config.js';
+import { z } from 'zod';
+import helmet from 'helmet';
 import authRoutes from './modules/auth/auth.routes.js';
 import boardsRoutes from './modules/boards/boards.routes.js';
 import columnsRoutes from './modules/columns/columns.routes.js';
 import cardsRoutes from './modules/cards/cards.routes.js';
 import { notFound, errorHandler } from './middlewares/errorHandler.js';
-import { corsOrigin } from './config.js';
-import { z } from 'zod';
 
 // Mensajes de validación de Zod en español para toda la API. Es el respaldo:
 // los mensajes escritos a mano en cada schema tienen prioridad sobre estos.
@@ -17,6 +18,7 @@ z.config(z.locales.es());
 
 const app = express();
 
+app.use(helmet());
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 
