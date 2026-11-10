@@ -6,6 +6,7 @@ import { useSession } from '../../../context/session';
 import {
     getBoard,
     moveCard,
+    moveColumn,
     type BoardDetail,
     type Card,
     type Column,
@@ -23,7 +24,8 @@ import {
 } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
 import SortableCard from '../components/SortableCard';
-import DroppableColumn from '../components/DroppableColumn';
+import SortableColumn from '../components/SortableColumn';
+import { isSortable } from '@dnd-kit/react/sortable';
 
 function findCardPlace(board: BoardDetail, cardId: number) {
     for (const column of board.columns) {
@@ -245,6 +247,46 @@ function Board() {
             return;
         }
 
+        const { source } = event.operation;
+
+        if (source?.type === 'column') {
+            if (!isSortable(source) || previousBoard === null) {
+                return;
+            }
+
+            const { initialIndex, index } = source;
+
+            if (initialIndex === index) {
+                return;
+            }
+
+            const columns = [...previousBoard.columns];
+            const [movedColumn] = columns.splice(initialIndex, 1);
+            columns.splice(index, 0, movedColumn);
+            setBoard({ ...previousBoard, columns });
+
+            try {
+                await moveColumn(
+                    movedColumn.id,
+                    index > 0 ? columns[index - 1].id : null,
+                );
+            } catch (err) {
+                if (err instanceof ApiError && err.status === 401) {
+                    endSession();
+                    return;
+                }
+
+                setBoard(previousBoard);
+                setMoveError(
+                    err instanceof Error
+                        ? err.message
+                        : 'No se pudo mover la columna',
+                );
+            }
+
+            return;
+        }
+
         const cardId = event.operation.source?.id;
 
         if (
@@ -335,9 +377,12 @@ function Board() {
                         onDragEnd={handleDragEnd}
                     >
                         <div className={styles.columns}>
-                            {board.columns.map((column) => (
-                                <DroppableColumn
+                            {board.columns.map((column, columnIndex) => (
+                                <SortableColumn
                                     id={`column-${column.id}`}
+                                    index={columnIndex}
+                                    title={column.title}
+                                    canDrag={board.role !== 'viewer'}
                                     className={styles.column}
                                     key={column.id}
                                 >
@@ -415,7 +460,7 @@ function Board() {
                                             onCreated={handleCardCreated}
                                         />
                                     )}
-                                </DroppableColumn>
+                                </SortableColumn>
                             ))}
                         </div>
                     </DragDropProvider>

@@ -87,6 +87,16 @@ export async function deleteColumn(columnId: number): Promise<void> {
     });
 }
 
+export async function moveColumn(
+    columnId: number,
+    afterId: number | null,
+): Promise<Omit<Column, 'cards'>> {
+    return apiFetch<Omit<Column, 'cards'>>(`/columns/${columnId}/move`, {
+        method: 'PATCH',
+        body: { afterId },
+    });
+}
+
 export async function createCard(
     columnId: number,
     title: string,
