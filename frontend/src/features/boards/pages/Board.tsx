@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styles from './Board.module.css';
 import { Link, useParams, useNavigate } from 'react-router';
 import { ApiError } from '../../../services/errors';
@@ -15,14 +15,19 @@ import EditCardDialog from '../components/EditCardDialog';
 import EditColumnDialog from '../components/EditColumnDialog';
 import EditBoardDialog from '../components/EditBoardDialog';
 
-import { DragDropProvider } from '@dnd-kit/react';
-import { isSortable } from '@dnd-kit/react/sortable';
+import {
+    DragDropProvider,
+    type DragEndEvent,
+    type DragOverEvent,
+} from '@dnd-kit/react';
+import { move } from '@dnd-kit/helpers';
 import SortableCard from '../components/SortableCard';
 
 function Board() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [board, setBoard] = useState<BoardDetail | null>(null);
+    const boardBeforeDrag = useRef<BoardDetail | null>(null);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const { endSession } = useSession();
@@ -176,6 +181,44 @@ function Board() {
         });
     }
 
+    function handleDragStart() {
+        boardBeforeDrag.current = board;
+    }
+
+    function handleDragOver(event: DragOverEvent) {
+        if (event.operation.source?.type !== 'card') {
+            return;
+        }
+
+        setBoard((current) => {
+            if (current === null) {
+                return current;
+            }
+
+            const cardsByColumn = Object.fromEntries(
+                current.columns.map((column) => [column.id, column.cards]),
+            );
+            const moved = move(cardsByColumn, event);
+
+            return {
+                ...current,
+                columns: current.columns.map((column) => ({
+                    ...column,
+                    cards: (moved[column.id] ?? column.cards).map((card) => ({
+                        ...card,
+                        columnId: column.id,
+                    })),
+                })),
+            };
+        });
+    }
+
+    function handleDragEnd(event: DragEndEvent) {
+        if (event.canceled) {
+            setBoard(boardBeforeDrag.current);
+        }
+    }
+
     return (
         <main className={styles.page}>
             <Link className={styles.back} to="/boards">
@@ -217,27 +260,9 @@ function Board() {
                     )}
 
                     <DragDropProvider
-                        onDragEnd={(event) => {
-                            if (event.canceled) {
-                                return;
-                            }
-
-                            const { source } = event.operation;
-
-                            if (isSortable(source)) {
-                                console.log({
-                                    cardId: source.id,
-                                    desde: {
-                                        columna: source.initialGroup,
-                                        posicion: source.initialIndex,
-                                    },
-                                    hasta: {
-                                        columna: source.group,
-                                        posicion: source.index,
-                                    },
-                                });
-                            }
-                        }}
+                        onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
+                        onDragEnd={handleDragEnd}
                     >
                         <div className={styles.columns}>
                             {board.columns.map((column) => (
