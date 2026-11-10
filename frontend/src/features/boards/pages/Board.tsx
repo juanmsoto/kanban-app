@@ -8,6 +8,7 @@ import {
     moveCard,
     moveColumn,
     type BoardDetail,
+    type BoardRole,
     type Card,
     type Column,
 } from '../services/boards.api';
@@ -16,6 +17,7 @@ import CreateCardDialog from '../components/CreateCardDialog';
 import EditCardDialog from '../components/EditCardDialog';
 import EditColumnDialog from '../components/EditColumnDialog';
 import EditBoardDialog from '../components/EditBoardDialog';
+import MembersDialog from '../components/MembersDialog';
 
 import {
     DragDropProvider,
@@ -107,6 +109,18 @@ function Board() {
 
     function handleBoardDeleted() {
         navigate('/boards', { replace: true });
+    }
+
+    function handleBoardLeft() {
+        navigate('/boards', { replace: true });
+    }
+
+    function handleOwnRoleChanged(role: BoardRole) {
+        if (board === null) {
+            return;
+        }
+
+        setBoard({ ...board, role });
     }
 
     function handleColumnCreated(column: Omit<Column, 'cards'>) {
@@ -201,6 +215,16 @@ function Board() {
         });
     }
 
+    async function reloadBoard(fallback: BoardDetail) {
+        try {
+            const freshBoard = await getBoard(String(fallback.id));
+            boardBeforeDrag.current = freshBoard;
+            setBoard(freshBoard);
+        } catch {
+            setBoard(fallback);
+        }
+    }
+
     function handleDragStart() {
         boardBeforeDrag.current = board;
         setMoveError('');
@@ -276,7 +300,7 @@ function Board() {
                     return;
                 }
 
-                setBoard(previousBoard);
+                await reloadBoard(previousBoard);
                 setMoveError(
                     err instanceof Error
                         ? err.message
@@ -316,7 +340,7 @@ function Board() {
                 return;
             }
 
-            setBoard(previousBoard);
+            await reloadBoard(previousBoard);
             setMoveError(
                 err instanceof Error
                     ? err.message
@@ -350,6 +374,13 @@ function Board() {
                                 onDeleted={handleBoardDeleted}
                             />
                         )}
+                        <MembersDialog
+                            boardId={board.id}
+                            boardName={board.name}
+                            role={board.role}
+                            onOwnRoleChanged={handleOwnRoleChanged}
+                            onLeft={handleBoardLeft}
+                        />
                     </div>
 
                     {board.role !== 'viewer' && (

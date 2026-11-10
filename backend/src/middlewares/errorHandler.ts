@@ -58,7 +58,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     }
 
     if(err instanceof LastOwnerError) {
-        res.status(409).json({ error: 'El tablero debe tener al menos un owner' });
+        res.status(409).json({ error: 'El tablero debe tener al menos un dueño' });
         return;
     }
     

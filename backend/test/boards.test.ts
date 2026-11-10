@@ -633,7 +633,7 @@ describe('PATCH /boards/:id/members/:userId', () => {
         const response = await cambiarRol(dueño.token, boardId, dueño.user.id, { role: 'editor' });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un dueño' });
         expect(await rolDe(boardId, dueño.user.id)).toBe('owner');
     });
 
@@ -743,7 +743,7 @@ describe('PATCH /boards/:id/members/:userId', () => {
             const respuesta = await pedidoDeBeto;
 
             expect(respuesta.status).toBe(409);
-            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un dueño' });
         } finally {
             await conexionA.query('ROLLBACK').catch(() => undefined);
             conexionA.release();
@@ -825,7 +825,7 @@ describe('DELETE /boards/:id/members/:userId', () => {
         const response = await quitar(dueño.token, boardId, dueño.user.id);
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un dueño' });
         expect(await esMiembro(boardId, dueño.user.id)).toBe(true);
     });
 
@@ -904,7 +904,7 @@ describe('DELETE /boards/:id/members/:userId', () => {
             const respuesta = await pedidoDeBeto;
 
             expect(respuesta.status).toBe(409);
-            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un dueño' });
         } finally {
             await conexionA.query('ROLLBACK').catch(() => undefined);
             conexionA.release();
@@ -1229,5 +1229,60 @@ describe('assertBoardRole', () => {
 
         await expect(assertBoardRole(ajeno.user.id, boardId, 'viewer')).rejects.toThrow(BoardNotFoundError);
         await expect(assertBoardRole(dueño.user.id, 999999, 'viewer')).rejects.toThrow(BoardNotFoundError);
+    });
+});
+
+describe('Límite de intentos al agregar miembros', () => {
+    it('bloquea con 429 el intento 21 en una hora, aunque el email exista, y no agrega al usuario', async () => {
+        const dueño = await crearUsuarioYToken('ana@mail.com');
+        const beto = await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const boardId = await crearTablero(dueño.token);
+
+        for (let i = 1; i <= 20; i++) {
+            const response = await request(app)
+                .post(`/boards/${boardId}/members`)
+                .set('Authorization', `Bearer ${dueño.token}`)
+                .send({ email: `nadie${i}@mail.com`, role: 'editor' });
+
+            expect(response.status).toBe(404);
+        }
+
+        const response = await request(app)
+            .post(`/boards/${boardId}/members`)
+            .set('Authorization', `Bearer ${dueño.token}`)
+            .send({ email: 'beto@mail.com', role: 'editor' });
+
+        expect(response.status).toBe(429);
+        expect(response.body).toEqual({
+            error: 'Demasiados intentos de agregar miembros, proba de nuevo mas tarde',
+        });
+
+        const filas = await db
+            .select()
+            .from(boardMembers)
+            .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, beto.user.id)));
+        expect(filas).toHaveLength(0);
+    });
+
+    it('cuenta por usuario: lo que gasta uno no bloquea a otro', async () => {
+        const ana = await crearUsuarioYToken('ana@mail.com');
+        const carla = await crearUsuarioYToken('carla@mail.com', 'Carla');
+        await crearUsuarioYToken('beto@mail.com', 'Beto');
+        const tableroDeAna = await crearTablero(ana.token);
+        const tableroDeCarla = await crearTablero(carla.token);
+
+        for (let i = 1; i <= 21; i++) {
+            await request(app)
+                .post(`/boards/${tableroDeAna}/members`)
+                .set('Authorization', `Bearer ${ana.token}`)
+                .send({ email: `nadie${i}@mail.com`, role: 'editor' });
+        }
+
+        const response = await request(app)
+            .post(`/boards/${tableroDeCarla}/members`)
+            .set('Authorization', `Bearer ${carla.token}`)
+            .send({ email: 'beto@mail.com', role: 'editor' });
+
+        expect(response.status).toBe(201);
     });
 });

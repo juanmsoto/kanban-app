@@ -8,6 +8,8 @@ type ConfirmDialogProps = {
     title: string;
     message: string;
     onConfirm: () => Promise<void>;
+    confirmLabel?: string;
+    pendingLabel?: string;
 };
 
 function ConfirmDialog({
@@ -15,6 +17,8 @@ function ConfirmDialog({
     title,
     message,
     onConfirm,
+    confirmLabel = 'Eliminar',
+    pendingLabel = 'Eliminando...',
 }: ConfirmDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
     const [error, setError] = useState('');
@@ -88,7 +92,7 @@ function ConfirmDialog({
                             onClick={handleConfirm}
                             disabled={isLoading}
                         >
-                            {isLoading ? 'Eliminando...' : 'Eliminar'}
+                            {isLoading ? pendingLabel : confirmLabel}
                         </button>
                     </div>
                 </div>

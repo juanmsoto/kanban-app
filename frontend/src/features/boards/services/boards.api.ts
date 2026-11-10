@@ -26,6 +26,15 @@ export type BoardDetail = Board & {
     columns: Column[];
 };
 
+export type BoardRole = Board['role'];
+
+export type Member = {
+    id: number;
+    name: string;
+    email: string;
+    role: BoardRole;
+};
+
 export async function getBoards(): Promise<Board[]> {
     return apiFetch<Board[]>('/boards');
 }
@@ -52,6 +61,41 @@ export async function updateBoard(
     return apiFetch<Board>(`/boards/${boardId}`, {
         method: 'PATCH',
         body: { name, description: description || null },
+    });
+}
+
+export async function getMembers(boardId: number): Promise<Member[]> {
+    return apiFetch<Member[]>(`/boards/${boardId}/members`);
+}
+
+export async function addMember(
+    boardId: number,
+    email: string,
+    role: BoardRole,
+): Promise<Member> {
+    return apiFetch<Member>(`/boards/${boardId}/members`, {
+        method: 'POST',
+        body: { email, role },
+    });
+}
+
+export async function updateMemberRole(
+    boardId: number,
+    userId: number,
+    role: BoardRole,
+): Promise<Member> {
+    return apiFetch<Member>(`/boards/${boardId}/members/${userId}`, {
+        method: 'PATCH',
+        body: { role },
+    });
+}
+
+export async function removeMember(
+    boardId: number,
+    userId: number,
+): Promise<void> {
+    return apiFetch<void>(`/boards/${boardId}/members/${userId}`, {
+        method: 'DELETE',
     });
 }
 
