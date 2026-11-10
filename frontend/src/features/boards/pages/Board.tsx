@@ -201,6 +201,16 @@ function Board() {
         });
     }
 
+    async function reloadBoard(fallback: BoardDetail) {
+        try {
+            const freshBoard = await getBoard(String(fallback.id));
+            boardBeforeDrag.current = freshBoard;
+            setBoard(freshBoard);
+        } catch {
+            setBoard(fallback);
+        }
+    }
+
     function handleDragStart() {
         boardBeforeDrag.current = board;
         setMoveError('');
@@ -276,7 +286,7 @@ function Board() {
                     return;
                 }
 
-                setBoard(previousBoard);
+                await reloadBoard(previousBoard);
                 setMoveError(
                     err instanceof Error
                         ? err.message
@@ -316,7 +326,7 @@ function Board() {
                 return;
             }
 
-            setBoard(previousBoard);
+            await reloadBoard(previousBoard);
             setMoveError(
                 err instanceof Error
                     ? err.message
