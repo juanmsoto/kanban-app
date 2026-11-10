@@ -1,0 +1,32 @@
+/* Manija de arrastre: la franja izquierda de cada tarjeta. */
+
+.handle {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--color-muted);
+    cursor: grab;
+    touch-action: none;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--color-border);
+    border-radius: 12px 0 0 12px;
+}
+
+.handle:hover {
+    color: var(--color-primary);
+}
+
+.handle:active {
+    cursor: grabbing;
+}
+
+.handle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}

@@ -87,6 +87,16 @@ export async function deleteColumn(columnId: number): Promise<void> {
     });
 }
 
+export async function moveColumn(
+    columnId: number,
+    afterId: number | null,
+): Promise<Omit<Column, 'cards'>> {
+    return apiFetch<Omit<Column, 'cards'>>(`/columns/${columnId}/move`, {
+        method: 'PATCH',
+        body: { afterId },
+    });
+}
+
 export async function createCard(
     columnId: number,
     title: string,
@@ -112,5 +122,16 @@ export async function updateCard(
 export async function deleteCard(cardId: number): Promise<void> {
     return apiFetch<void>(`/cards/${cardId}`, {
         method: 'DELETE',
+    });
+}
+
+export async function moveCard(
+    cardId: number,
+    columnId: number,
+    afterId: number | null,
+): Promise<Card> {
+    return apiFetch<Card>(`/cards/${cardId}/move`, {
+        method: 'PATCH',
+        body: { columnId, afterId },
     });
 }

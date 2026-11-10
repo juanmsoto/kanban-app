@@ -1,0 +1,30 @@
+/* Manija de arrastre de la columna: una franja corta centrada arriba. */
+
+.handle {
+    align-self: center;
+    margin-top: -10px;
+    padding: 0 18px;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    color: var(--color-muted);
+    cursor: grab;
+    touch-action: none;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+}
+
+.handle:hover {
+    color: var(--color-primary);
+}
+
+.handle:active {
+    cursor: grabbing;
+}
+
+.handle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}

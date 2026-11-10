@@ -1,24 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import styles from './Board.module.css';
 import { Link, useParams, useNavigate } from 'react-router';
 import { ApiError } from '../../../services/errors';
 import { useSession } from '../../../context/session';
 import {
     getBoard,
+    moveCard,
+    moveColumn,
     type BoardDetail,
     type Card,
     type Column,
 } from '../services/boards.api';
 import CreateColumnForm from '../components/CreateColumnForm';
 import CreateCardDialog from '../components/CreateCardDialog';
-import styles from './Board.module.css';
 import EditCardDialog from '../components/EditCardDialog';
 import EditColumnDialog from '../components/EditColumnDialog';
 import EditBoardDialog from '../components/EditBoardDialog';
+
+import {
+    DragDropProvider,
+    type DragEndEvent,
+    type DragOverEvent,
+} from '@dnd-kit/react';
+import { move } from '@dnd-kit/helpers';
+import SortableCard from '../components/SortableCard';
+import SortableColumn from '../components/SortableColumn';
+import { isSortable } from '@dnd-kit/react/sortable';
+
+function findCardPlace(board: BoardDetail, cardId: number) {
+    for (const column of board.columns) {
+        const index = column.cards.findIndex((card) => card.id === cardId);
+
+        if (index !== -1) {
+            return {
+                columnId: column.id,
+                afterId: index > 0 ? column.cards[index - 1].id : null,
+            };
+        }
+    }
+
+    return null;
+}
 
 function Board() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [board, setBoard] = useState<BoardDetail | null>(null);
+    const boardBeforeDrag = useRef<BoardDetail | null>(null);
+    const [moveError, setMoveError] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const { endSession } = useSession();
@@ -172,6 +201,130 @@ function Board() {
         });
     }
 
+    function handleDragStart() {
+        boardBeforeDrag.current = board;
+        setMoveError('');
+    }
+
+    function handleDragOver(event: DragOverEvent) {
+        if (event.operation.source?.type !== 'card') {
+            return;
+        }
+
+        setBoard((current) => {
+            if (current === null) {
+                return current;
+            }
+
+            const cardsByColumn = Object.fromEntries(
+                current.columns.map((column) => [
+                    `column-${column.id}`,
+                    column.cards,
+                ]),
+            );
+            const moved = move(cardsByColumn, event);
+
+            return {
+                ...current,
+                columns: current.columns.map((column) => ({
+                    ...column,
+                    cards: (moved[`column-${column.id}`] ?? column.cards).map(
+                        (card) => ({
+                            ...card,
+                            columnId: column.id,
+                        }),
+                    ),
+                })),
+            };
+        });
+    }
+
+    async function handleDragEnd(event: DragEndEvent) {
+        const previousBoard = boardBeforeDrag.current;
+
+        if (event.canceled) {
+            setBoard(previousBoard);
+            return;
+        }
+
+        const { source } = event.operation;
+
+        if (source?.type === 'column') {
+            if (!isSortable(source) || previousBoard === null) {
+                return;
+            }
+
+            const { initialIndex, index } = source;
+
+            if (initialIndex === index) {
+                return;
+            }
+
+            const columns = [...previousBoard.columns];
+            const [movedColumn] = columns.splice(initialIndex, 1);
+            columns.splice(index, 0, movedColumn);
+            setBoard({ ...previousBoard, columns });
+
+            try {
+                await moveColumn(
+                    movedColumn.id,
+                    index > 0 ? columns[index - 1].id : null,
+                );
+            } catch (err) {
+                if (err instanceof ApiError && err.status === 401) {
+                    endSession();
+                    return;
+                }
+
+                setBoard(previousBoard);
+                setMoveError(
+                    err instanceof Error
+                        ? err.message
+                        : 'No se pudo mover la columna',
+                );
+            }
+
+            return;
+        }
+
+        const cardId = event.operation.source?.id;
+
+        if (
+            board === null ||
+            previousBoard === null ||
+            typeof cardId !== 'number'
+        ) {
+            return;
+        }
+
+        const from = findCardPlace(previousBoard, cardId);
+        const to = findCardPlace(board, cardId);
+
+        if (!from || !to) {
+            return;
+        }
+
+        if (from.columnId === to.columnId && from.afterId === to.afterId) {
+            return;
+        }
+
+        try {
+            await moveCard(cardId, to.columnId, to.afterId);
+        } catch (err) {
+            if (err instanceof ApiError && err.status === 401) {
+                endSession();
+                return;
+            }
+
+            setBoard(previousBoard);
+            setMoveError(
+                err instanceof Error
+                    ? err.message
+                    : 'No se pudo mover la tarjeta',
+            );
+        }
+    }
+
     return (
         <main className={styles.page}>
             <Link className={styles.back} to="/boards">
@@ -212,76 +365,105 @@ function Board() {
                         </p>
                     )}
 
-                    <div className={styles.columns}>
-                        {board.columns.map((column) => (
-                            <section className={styles.column} key={column.id}>
-                                <div className={styles.columnHeader}>
-                                    <h2 className={styles.columnTitle}>
-                                        {column.title}
-                                    </h2>
-                                    {board.role !== 'viewer' && (
-                                        <EditColumnDialog
-                                            column={column}
-                                            onUpdated={handleColumnUpdated}
-                                            onDeleted={handleColumnDeleted}
-                                        />
-                                    )}
-                                </div>
+                    {moveError && (
+                        <p className={styles.error} role="alert">
+                            {moveError}
+                        </p>
+                    )}
 
-                                {column.cards.length === 0 ? (
-                                    <p className={styles.emptyColumn}>
-                                        Sin tarjetas
-                                    </p>
-                                ) : (
-                                    <ul className={styles.cards}>
-                                        {column.cards.map((card) => (
-                                            <li
-                                                className={styles.card}
-                                                key={card.id}
-                                            >
-                                                <EditCardDialog
-                                                    card={card}
-                                                    canEdit={
+                    <DragDropProvider
+                        onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <div className={styles.columns}>
+                            {board.columns.map((column, columnIndex) => (
+                                <SortableColumn
+                                    id={`column-${column.id}`}
+                                    index={columnIndex}
+                                    title={column.title}
+                                    canDrag={board.role !== 'viewer'}
+                                    className={styles.column}
+                                    key={column.id}
+                                >
+                                    <div className={styles.columnHeader}>
+                                        <h2 className={styles.columnTitle}>
+                                            {column.title}
+                                        </h2>
+                                        {board.role !== 'viewer' && (
+                                            <EditColumnDialog
+                                                column={column}
+                                                onUpdated={handleColumnUpdated}
+                                                onDeleted={handleColumnDeleted}
+                                            />
+                                        )}
+                                    </div>
+
+                                    {column.cards.length === 0 ? (
+                                        <p className={styles.emptyColumn}>
+                                            Sin tarjetas
+                                        </p>
+                                    ) : (
+                                        <ul className={styles.cards}>
+                                            {column.cards.map((card, index) => (
+                                                <SortableCard
+                                                    key={card.id}
+                                                    id={card.id}
+                                                    index={index}
+                                                    columnId={column.id}
+                                                    title={card.title}
+                                                    canDrag={
                                                         board.role !== 'viewer'
                                                     }
-                                                    onUpdated={
-                                                        handleCardUpdated
-                                                    }
-                                                    onDeleted={
-                                                        handleCardDeleted
-                                                    }
+                                                    className={styles.card}
                                                 >
-                                                    <span
-                                                        className={
-                                                            styles.cardTitle
+                                                    <EditCardDialog
+                                                        card={card}
+                                                        canEdit={
+                                                            board.role !==
+                                                            'viewer'
+                                                        }
+                                                        onUpdated={
+                                                            handleCardUpdated
+                                                        }
+                                                        onDeleted={
+                                                            handleCardDeleted
                                                         }
                                                     >
-                                                        {card.title}
-                                                    </span>
-                                                    {card.description && (
                                                         <span
                                                             className={
-                                                                styles.cardDescription
+                                                                styles.cardTitle
                                                             }
                                                         >
-                                                            {card.description}
+                                                            {card.title}
                                                         </span>
-                                                    )}
-                                                </EditCardDialog>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                                {board.role !== 'viewer' && (
-                                    <CreateCardDialog
-                                        columnId={column.id}
-                                        columnTitle={column.title}
-                                        onCreated={handleCardCreated}
-                                    />
-                                )}
-                            </section>
-                        ))}
-                    </div>
+                                                        {card.description && (
+                                                            <span
+                                                                className={
+                                                                    styles.cardDescription
+                                                                }
+                                                            >
+                                                                {
+                                                                    card.description
+                                                                }
+                                                            </span>
+                                                        )}
+                                                    </EditCardDialog>
+                                                </SortableCard>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    {board.role !== 'viewer' && (
+                                        <CreateCardDialog
+                                            columnId={column.id}
+                                            columnTitle={column.title}
+                                            onCreated={handleCardCreated}
+                                        />
+                                    )}
+                                </SortableColumn>
+                            ))}
+                        </div>
+                    </DragDropProvider>
                 </>
             )}
         </main>
