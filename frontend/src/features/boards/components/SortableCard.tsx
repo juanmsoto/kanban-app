@@ -24,7 +24,7 @@ function SortableCard({
     const { ref, handleRef } = useSortable({
         id,
         index,
-        group: columnId,
+        group: `column-${columnId}`,
         type: 'card',
         accept: 'card',
         disabled: !canDrag,

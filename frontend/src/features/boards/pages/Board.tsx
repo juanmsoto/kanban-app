@@ -23,6 +23,7 @@ import {
 } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
 import SortableCard from '../components/SortableCard';
+import DroppableColumn from '../components/DroppableColumn';
 
 function findCardPlace(board: BoardDetail, cardId: number) {
     for (const column of board.columns) {
@@ -214,7 +215,10 @@ function Board() {
             }
 
             const cardsByColumn = Object.fromEntries(
-                current.columns.map((column) => [column.id, column.cards]),
+                current.columns.map((column) => [
+                    `column-${column.id}`,
+                    column.cards,
+                ]),
             );
             const moved = move(cardsByColumn, event);
 
@@ -222,10 +226,12 @@ function Board() {
                 ...current,
                 columns: current.columns.map((column) => ({
                     ...column,
-                    cards: (moved[column.id] ?? column.cards).map((card) => ({
-                        ...card,
-                        columnId: column.id,
-                    })),
+                    cards: (moved[`column-${column.id}`] ?? column.cards).map(
+                        (card) => ({
+                            ...card,
+                            columnId: column.id,
+                        }),
+                    ),
                 })),
             };
         });
@@ -330,7 +336,8 @@ function Board() {
                     >
                         <div className={styles.columns}>
                             {board.columns.map((column) => (
-                                <section
+                                <DroppableColumn
+                                    id={`column-${column.id}`}
                                     className={styles.column}
                                     key={column.id}
                                 >
@@ -408,7 +415,7 @@ function Board() {
                                             onCreated={handleCardCreated}
                                         />
                                     )}
-                                </section>
+                                </DroppableColumn>
                             ))}
                         </div>
                     </DragDropProvider>
