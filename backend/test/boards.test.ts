@@ -633,7 +633,7 @@ describe('PATCH /boards/:id/members/:userId', () => {
         const response = await cambiarRol(dueño.token, boardId, dueño.user.id, { role: 'editor' });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un dueño' });
         expect(await rolDe(boardId, dueño.user.id)).toBe('owner');
     });
 
@@ -743,7 +743,7 @@ describe('PATCH /boards/:id/members/:userId', () => {
             const respuesta = await pedidoDeBeto;
 
             expect(respuesta.status).toBe(409);
-            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un dueño' });
         } finally {
             await conexionA.query('ROLLBACK').catch(() => undefined);
             conexionA.release();
@@ -825,7 +825,7 @@ describe('DELETE /boards/:id/members/:userId', () => {
         const response = await quitar(dueño.token, boardId, dueño.user.id);
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+        expect(response.body).toEqual({ error: 'El tablero debe tener al menos un dueño' });
         expect(await esMiembro(boardId, dueño.user.id)).toBe(true);
     });
 
@@ -904,7 +904,7 @@ describe('DELETE /boards/:id/members/:userId', () => {
             const respuesta = await pedidoDeBeto;
 
             expect(respuesta.status).toBe(409);
-            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un owner' });
+            expect(respuesta.body).toEqual({ error: 'El tablero debe tener al menos un dueño' });
         } finally {
             await conexionA.query('ROLLBACK').catch(() => undefined);
             conexionA.release();
