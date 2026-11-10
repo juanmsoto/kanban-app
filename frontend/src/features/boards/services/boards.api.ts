@@ -114,3 +114,14 @@ export async function deleteCard(cardId: number): Promise<void> {
         method: 'DELETE',
     });
 }
+
+export async function moveCard(
+    cardId: number,
+    columnId: number,
+    afterId: number | null,
+): Promise<Card> {
+    return apiFetch<Card>(`/cards/${cardId}/move`, {
+        method: 'PATCH',
+        body: { columnId, afterId },
+    });
+}

@@ -5,6 +5,7 @@ import { ApiError } from '../../../services/errors';
 import { useSession } from '../../../context/session';
 import {
     getBoard,
+    moveCard,
     type BoardDetail,
     type Card,
     type Column,
@@ -23,11 +24,27 @@ import {
 import { move } from '@dnd-kit/helpers';
 import SortableCard from '../components/SortableCard';
 
+function findCardPlace(board: BoardDetail, cardId: number) {
+    for (const column of board.columns) {
+        const index = column.cards.findIndex((card) => card.id === cardId);
+
+        if (index !== -1) {
+            return {
+                columnId: column.id,
+                afterId: index > 0 ? column.cards[index - 1].id : null,
+            };
+        }
+    }
+
+    return null;
+}
+
 function Board() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [board, setBoard] = useState<BoardDetail | null>(null);
     const boardBeforeDrag = useRef<BoardDetail | null>(null);
+    const [moveError, setMoveError] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const { endSession } = useSession();
@@ -183,6 +200,7 @@ function Board() {
 
     function handleDragStart() {
         boardBeforeDrag.current = board;
+        setMoveError('');
     }
 
     function handleDragOver(event: DragOverEvent) {
@@ -213,9 +231,49 @@ function Board() {
         });
     }
 
-    function handleDragEnd(event: DragEndEvent) {
+    async function handleDragEnd(event: DragEndEvent) {
+        const previousBoard = boardBeforeDrag.current;
+
         if (event.canceled) {
-            setBoard(boardBeforeDrag.current);
+            setBoard(previousBoard);
+            return;
+        }
+
+        const cardId = event.operation.source?.id;
+
+        if (
+            board === null ||
+            previousBoard === null ||
+            typeof cardId !== 'number'
+        ) {
+            return;
+        }
+
+        const from = findCardPlace(previousBoard, cardId);
+        const to = findCardPlace(board, cardId);
+
+        if (!from || !to) {
+            return;
+        }
+
+        if (from.columnId === to.columnId && from.afterId === to.afterId) {
+            return;
+        }
+
+        try {
+            await moveCard(cardId, to.columnId, to.afterId);
+        } catch (err) {
+            if (err instanceof ApiError && err.status === 401) {
+                endSession();
+                return;
+            }
+
+            setBoard(previousBoard);
+            setMoveError(
+                err instanceof Error
+                    ? err.message
+                    : 'No se pudo mover la tarjeta',
+            );
         }
     }
 
@@ -256,6 +314,12 @@ function Board() {
                     {board.columns.length === 0 && (
                         <p className={styles.message}>
                             Este tablero todavía no tiene columnas.
+                        </p>
+                    )}
+
+                    {moveError && (
+                        <p className={styles.error} role="alert">
+                            {moveError}
                         </p>
                     )}
 
