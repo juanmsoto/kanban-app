@@ -107,7 +107,7 @@ En `frontend/`:
 | `PATCH /boards/:id` | sí | Cambia `name` y/o `description` (`editor`) |
 | `DELETE /boards/:id` | sí | Borra el tablero con sus columnas y tarjetas (`owner`); 204 |
 | `GET /boards/:id/members` | sí | Lista los miembros con su rol (`viewer`) |
-| `POST /boards/:id/members` | sí | Agrega un miembro por `email` con un `role` (`owner`) |
+| `POST /boards/:id/members` | sí | Agrega un miembro por `email` con un `role` (`owner`). Máximo 20 intentos por hora por usuario |
 | `PATCH /boards/:id/members/:userId` | sí | Cambia el rol de un miembro (`owner`); el tablero siempre conserva al menos un owner |
 | `DELETE /boards/:id/members/:userId` | sí | Quita a un miembro (`owner`), o cualquier miembro puede salirse solo; 204 |
 | `GET /boards/:id/columns` | sí | Lista las columnas en orden (`viewer`) |
@@ -122,7 +122,7 @@ En `frontend/`:
 
 Roles por tablero: `owner`, `editor`, `viewer`. Quien no es miembro recibe 404 (no se revela que el tablero existe); un miembro sin rol suficiente recibe 403.
 
-Los errores siempre llegan como JSON: `{ "error": "<mensaje>" }`, y en los 400 de validación además `fields` con los errores de cada campo. Pasado el límite de intentos, login y registro responden 429 y los headers `RateLimit` y `RateLimit-Policy` dicen cuándo se puede volver a intentar.
+Los errores siempre llegan como JSON: `{ "error": "<mensaje>" }`, y en los 400 de validación además `fields` con los errores de cada campo. Pasado el límite de intentos, login, registro y agregar miembros responden 429 y los headers `RateLimit` y `RateLimit-Policy` dicen cuándo se puede volver a intentar.
 
 El orden de columnas y tarjetas se guarda en un número `position` que calcula siempre el servidor: el cliente nunca lo manda. Para mover, el cliente dice "después de quién" (`afterId`, `null` = al principio) y el servidor elige la posición (el punto medio entre las dos vecinas; si ya no queda hueco, renumera esa lista). Un `afterId` o un `columnId` que no corresponde (no existe, es de otro tablero o es el propio elemento) responde 400 `Movimiento invalido`. Como un movimiento puede renumerar a las demás, el cliente debe confiar en el orden en que le llegan las listas y no guardar posiciones.
 

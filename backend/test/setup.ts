@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, afterAll } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { db, pool } from '../src/db/client.js';
-import { loginStore, registerStore } from '../src/middlewares/rateLimit.js';
+import { addMemberStore, loginStore, registerStore } from '../src/middlewares/rateLimit.js';
 
 // Red de seguridad: este setup vacía tablas, así que se niega a correr
 // contra cualquier base cuyo nombre no termine en "_test".
@@ -23,6 +23,7 @@ beforeEach(async () => {
     );
     await loginStore.resetAll();
     await registerStore.resetAll();
+    await addMemberStore.resetAll();
 });
 
 afterAll(async () => {
