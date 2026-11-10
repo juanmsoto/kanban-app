@@ -1,0 +1,149 @@
+/* Botón "Miembros" junto al título y el cuadro con la lista de miembros. */
+
+.openButton {
+    flex: none;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--color-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 5px 12px;
+}
+
+.openButton:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.openButton:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* Sin display acá: pisaría el estado cerrado del dialog. */
+.dialog {
+    width: min(100% - 32px, 560px);
+    padding: 20px;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+}
+
+.dialog:modal {
+    overscroll-behavior: contain;
+}
+
+.dialog::backdrop {
+    background: rgb(16 24 40 / 50%);
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.message {
+    font-size: 0.875rem;
+    color: var(--color-muted);
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+}
+
+.member {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 10px 12px;
+}
+
+.member + .member {
+    border-top: 1px solid var(--color-border);
+}
+
+.info {
+    flex: 1;
+    min-width: 160px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.you {
+    font-weight: 400;
+    color: var(--color-muted);
+}
+
+.email {
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+    overflow-wrap: anywhere;
+}
+
+.roleBadge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 3px 10px;
+}
+
+.roleSelect {
+    font: inherit;
+    font-size: 0.875rem;
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 6px 8px;
+}
+
+.roleSelect:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+.roleSelect:disabled {
+    opacity: 0.6;
+}
+
+.sectionTitle {
+    font-size: 0.9375rem;
+    font-weight: 700;
+}
+
+/* Agregar: email ancho, rol y botón al lado; en pantallas angostas se apilan. */
+.addForm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.addForm .emailField {
+    flex: 1;
+    min-width: 200px;
+}

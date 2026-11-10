@@ -2,7 +2,7 @@
 
 Tablero Kanban con equipos (tipo Trello). Proyecto de aprendizaje: cada pieza importante está escrita y entendida paso a paso.
 
-**Estado:** versión 1 casi completa. En la app funcionan el registro y el login, los tableros, las columnas y tarjetas (crear, editar, eliminar) y el arrastre de tarjetas y columnas con mouse o teclado, respetando el rol de cada usuario. Los miembros de un tablero (agregar, cambiar de rol, quitar) ya están en la API, pero todavía no tienen pantalla. El estado detallado y los próximos pasos están en [`PROGRESO.md`](PROGRESO.md).
+**Estado:** versión 1 casi completa. En la app funcionan el registro y el login, los tableros, las columnas y tarjetas (crear, editar, eliminar), el arrastre de tarjetas y columnas con mouse o teclado y los miembros de cada tablero (el dueño agrega por email, cambia roles y quita; cualquier miembro puede salirse), respetando el rol de cada usuario. El estado detallado y los próximos pasos están en [`PROGRESO.md`](PROGRESO.md).
 
 ## Stack
 

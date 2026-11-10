@@ -8,6 +8,7 @@ import {
     moveCard,
     moveColumn,
     type BoardDetail,
+    type BoardRole,
     type Card,
     type Column,
 } from '../services/boards.api';
@@ -16,6 +17,7 @@ import CreateCardDialog from '../components/CreateCardDialog';
 import EditCardDialog from '../components/EditCardDialog';
 import EditColumnDialog from '../components/EditColumnDialog';
 import EditBoardDialog from '../components/EditBoardDialog';
+import MembersDialog from '../components/MembersDialog';
 
 import {
     DragDropProvider,
@@ -107,6 +109,18 @@ function Board() {
 
     function handleBoardDeleted() {
         navigate('/boards', { replace: true });
+    }
+
+    function handleBoardLeft() {
+        navigate('/boards', { replace: true });
+    }
+
+    function handleOwnRoleChanged(role: BoardRole) {
+        if (board === null) {
+            return;
+        }
+
+        setBoard({ ...board, role });
     }
 
     function handleColumnCreated(column: Omit<Column, 'cards'>) {
@@ -360,6 +374,13 @@ function Board() {
                                 onDeleted={handleBoardDeleted}
                             />
                         )}
+                        <MembersDialog
+                            boardId={board.id}
+                            boardName={board.name}
+                            role={board.role}
+                            onOwnRoleChanged={handleOwnRoleChanged}
+                            onLeft={handleBoardLeft}
+                        />
                     </div>
 
                     {board.role !== 'viewer' && (
