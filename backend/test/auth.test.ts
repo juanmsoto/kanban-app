@@ -239,3 +239,61 @@ describe('GET /auth/me', () => {
         expect(response.body).toEqual({ error: 'No autenticado' });
     });
 });
+
+describe('Límite de intentos', () => {
+    it('bloquea el login con 429 después de 10 intentos fallidos, aunque el siguiente sea correcto', async () => {
+        await request(app).post('/auth/register').send(datosValidos);
+
+        for (let intento = 1; intento <= 10; intento++) {
+            const response = await request(app)
+                .post('/auth/login')
+                .send({ email: datosValidos.email, password: 'incorrecta-123' });
+
+            expect(response.status).toBe(401);
+        }
+
+        const response = await request(app)
+            .post('/auth/login')
+            .send({ email: datosValidos.email, password: datosValidos.password });
+
+        expect(response.status).toBe(429);
+        expect(response.body).toEqual({
+            error: 'Demasiados intentos, proba de nuevo mas tarde',
+        });
+        expect(response.body).not.toHaveProperty('token');
+    });
+
+    it('no cuenta los logins correctos', async () => {
+        await request(app).post('/auth/register').send(datosValidos);
+
+        for (let intento = 1; intento <= 15; intento++) {
+            const response = await request(app)
+                .post('/auth/login')
+                .send({ email: datosValidos.email, password: datosValidos.password });
+
+            expect(response.status).toBe(200);
+        }
+    });
+
+    it('bloquea el registro con 429 después de 10 registros y no crea el usuario', async () => {
+        for (let i = 1; i <= 10; i++) {
+            const response = await request(app)
+                .post('/auth/register')
+                .send({ ...datosValidos, email: `usuario${i}@mail.com` });
+
+            expect(response.status).toBe(201);
+        }
+
+        const response = await request(app)
+            .post('/auth/register')
+            .send({ ...datosValidos, email: 'usuario11@mail.com' });
+
+        expect(response.status).toBe(429);
+        expect(response.body).toEqual({
+            error: 'Demasiados registros, proba de nuevo mas tarde',
+        });
+
+        const filas = await db.select().from(users);
+        expect(filas).toHaveLength(10);
+    });
+});
